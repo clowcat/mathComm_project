@@ -1,4 +1,4 @@
-## STYLE_GUIDE.md: Math Ascend Frontend Standards
+## STYLE_GUIDE.md: MathComm. Frontend Standards
 
 ### 1. 디자인 원칙 (Design Principles)
 
