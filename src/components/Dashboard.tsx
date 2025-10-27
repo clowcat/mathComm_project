@@ -41,7 +41,7 @@ const skillNodes = [
   { 
     id: "magic-basics", 
     label: "Magic Square Basics", 
-    x: 120, 
+    x: 100, 
     y: 40, 
     unlocked: true, 
     level: "Beginner",
@@ -63,7 +63,7 @@ const skillNodes = [
   { 
     id: "magic-challenge", 
     label: "Magic Square Challenge", 
-    x: 480, 
+    x: 530, 
     y: 80, 
     unlocked: true, 
     level: "Advanced",
@@ -74,7 +74,7 @@ const skillNodes = [
   { 
     id: "moems-contest", 
     label: "MOEMS Contest", 
-    x: 660, 
+    x: 750, 
     y: 120, 
     unlocked: true, 
     level: "Olympiad",
@@ -85,7 +85,7 @@ const skillNodes = [
   { 
     id: "magic-advanced", 
     label: "Advanced Magic Squares", 
-    x: 480, 
+    x: 530, 
     y: 180, 
     unlocked: false, 
     level: "Expert",
@@ -97,7 +97,7 @@ const skillNodes = [
     id: "magic-olympiad", 
     label: "Olympiad Magic Squares", 
     x: 660, 
-    y: 220, 
+    y: 270, 
     unlocked: false, 
     level: "Master",
     age: "13-15",
