@@ -7,12 +7,12 @@ import { Network } from "lucide-react";
 
 // Simple skill-tree graph: nodes + edges (centered positions)
 const skillNodes = [
-  { id: "nt-basics", label: "Number Theory Basics", x: 200, y: 80, unlocked: true, level: "Basic" },
-  { id: "div", label: "Divisibility", x: 380, y: 80, unlocked: true, level: "Basic" },
-  { id: "mod", label: "Modular Arithmetic", x: 560, y: 120, unlocked: true, level: "Intermediate" },
-  { id: "crt", label: "CRT", x: 740, y: 160, unlocked: false, level: "Advanced" },
-  { id: "order", label: "Order & Cycles", x: 560, y: 220, unlocked: false, level: "Advanced" },
-  { id: "qr", label: "Quadratic Residues", x: 740, y: 260, unlocked: false, level: "Olympiad" },
+  { id: "nt-basics", label: "Number Theory Basics", x: 160, y: 90, unlocked: true, level: "Basic" },
+  { id: "div", label: "Divisibility", x: 360, y: 90, unlocked: true, level: "Basic" },
+  { id: "mod", label: "Modular Arithmetic", x: 560, y: 180, unlocked: true, level: "Intermediate" },
+  { id: "crt", label: "CRT", x: 760, y: 260, unlocked: false, level: "Advanced" },
+  { id: "order", label: "Order & Cycles", x: 560, y: 340, unlocked: false, level: "Advanced" },
+  { id: "qr", label: "Quadratic Residues", x: 760, y: 420, unlocked: false, level: "Olympiad" },
 ];
 const skillEdges = [
   ["nt-basics", "div"],
@@ -37,7 +37,7 @@ function SkillTreeCanvas({ onOpenNode }: { onOpenNode?: (id: string) => void }) 
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="relative h-[420px] w-full">
+        <div className="relative h-[460px] w-full">
           {/* Edges */}
           <svg className="absolute inset-0 h-full w-full">
             {skillEdges.map(([a, b], idx) => {
