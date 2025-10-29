@@ -3,6 +3,7 @@
 
 "use client"
 import React from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -658,6 +659,11 @@ export default function Dashboard() {
             <Button size="sm">Continue Learning</Button>
             <Button size="sm" variant="outline">Challenge of the Day</Button>
             <Button size="sm" variant="ghost">Theory Review</Button>
+            <Link href="/admin/problems">
+              <Button size="sm" variant="ghost" className="gap-1 text-gray-600 hover:text-gray-800">
+                <Lock className="h-4 w-4"/>Admin
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
