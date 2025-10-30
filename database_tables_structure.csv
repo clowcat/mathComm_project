@@ -1,0 +1,151 @@
+Table Name,Column Name,Data Type,Nullable,Default Value,Description,Constraints,Index
+categories,category_id,INTEGER,NOT NULL,,카테고리 ID (1~103),PRIMARY KEY,
+categories,name,TEXT,NOT NULL,,카테고리 이름 (예: Algebra),,
+categories,level,INTEGER,NOT NULL,,계층 레벨 (1/2/3),CHECK (level >= 1 AND level <= 3),✓
+categories,parent_id,INTEGER,NULL,,부모 카테고리 ID,FOREIGN KEY (categories.category_id),✓
+
+problems,id,UUID,NOT NULL,uuid_generate_v4(),고유 ID,PRIMARY KEY,✓
+problems,title,TEXT,NOT NULL,,문제 제목,,
+problems,content,TEXT,NOT NULL,,문제 내용 (KaTeX),,
+problems,solution,TEXT,NULL,,문제 풀이 (KaTeX),,
+problems,difficulty,INTEGER,NOT NULL,,난이도 (1-10),CHECK (difficulty >= 1 AND difficulty <= 10),✓
+problems,category_level1,INTEGER,NULL,,카테고리 Level 1 ID (1-10),FOREIGN KEY (categories.category_id),✓
+problems,category_level2,INTEGER,NULL,,카테고리 Level 2 ID (11-44),FOREIGN KEY (categories.category_id),
+problems,category_level3,INTEGER,NULL,,카테고리 Level 3 ID (45-103),FOREIGN KEY (categories.category_id),
+problems,category_path,TEXT,NULL,,전체 카테고리 경로 (표시용),,
+problems,level,TEXT,NULL,,난이도 레벨 (Beginner/Intermediate/Advanced/Olympiad),,✓
+problems,age_range,TEXT,NULL,,대상 연령 (예: 8-9),,
+problems,xp,INTEGER,NULL,0,획득 XP,,
+problems,tags,TEXT[],NULL,,검색용 태그 배열,,
+problems,diagram_image_url,TEXT,NULL,,도형/그래프 이미지 URL,,
+problems,linked_problem_ids,UUID[],NULL,,연결된 문제 ID 배열,,
+problems,parent_problem_id,UUID,NULL,,부모 문제 ID,FOREIGN KEY (problems.id),✓
+problems,is_generated,BOOLEAN,NULL,false,AI 생성 여부,,✓
+problems,ai_confidence,NUMERIC(3,2),NULL,,AI 신뢰도 (0.00-1.00),,
+problems,concepts,TEXT[],NULL,,포함된 수학 개념들,,
+problems,source,TEXT,NULL,,출처 (책/웹사이트/MOEMS 등),,
+problems,license,TEXT,NULL,,라이선스 정보,,
+problems,is_reviewed,BOOLEAN,NULL,false,관리자 검토 완료 여부,,
+problems,reviewer_id,UUID,NULL,,검토자 ID,FOREIGN KEY (auth.users.id),
+problems,created_at,TIMESTAMPTZ,NULL,NOW(),생성 시각,,✓
+problems,updated_at,TIMESTAMPTZ,NULL,NOW(),수정 시각,,
+problems,search_vector,TSVECTOR,NULL,,전문 검색용 벡터,,✓
+
+users,id,UUID,NOT NULL,,사용자 ID (Supabase Auth),PRIMARY KEY + FOREIGN KEY (auth.users.id),
+users,email,TEXT,NOT NULL,,이메일,UNIQUE,
+users,nickname,TEXT,NULL,,닉네임,UNIQUE,
+users,current_level,INTEGER,NULL,1,현재 레벨,,
+users,total_xp,INTEGER,NULL,0,총 XP,,
+users,ranking_points,INTEGER,NULL,0,랭킹 포인트 (RP),,✓
+users,tier,TEXT,NULL,Bronze,등급 (Bronze/Silver/Gold/Diamond/Master),,✓
+users,title,TEXT,NULL,,칭호 (예: Euler Master),,
+users,current_streak,INTEGER,NULL,0,현재 연속 일수,,
+users,longest_streak,INTEGER,NULL,0,최장 연속 일수,,
+users,last_activity_date,DATE,NULL,,마지막 활동 날짜,,
+users,problems_solved,INTEGER,NULL,0,해결한 문제 수,,
+users,problems_attempted,INTEGER,NULL,0,시도한 문제 수,,
+users,created_at,TIMESTAMPTZ,NULL,NOW(),가입 시각,,
+users,updated_at,TIMESTAMPTZ,NULL,NOW(),정보 수정 시각,,
+
+submissions,id,UUID,NOT NULL,uuid_generate_v4(),제출 ID,PRIMARY KEY,
+submissions,user_id,UUID,NOT NULL,,사용자 ID,FOREIGN KEY (users.id) ON DELETE CASCADE,✓
+submissions,problem_id,UUID,NOT NULL,,문제 ID,FOREIGN KEY (problems.id) ON DELETE CASCADE,✓
+submissions,solution_text,TEXT,NOT NULL,,사용자 풀이 (Markdown/LaTeX),,
+submissions,solution_html,TEXT,NULL,,렌더링된 HTML,,
+submissions,answer_value,TEXT,NULL,,Auto-check용 답안,,
+submissions,status,TEXT,NOT NULL,,채점 상태,CHECK (status IN ('pending','correct','incorrect','partial')),✓
+submissions,score,NUMERIC(5,2),NULL,,점수 (0-100),,
+submissions,xp_earned,INTEGER,NULL,0,획득한 XP,,
+submissions,feedback,TEXT,NULL,,AI/관리자 피드백,,
+submissions,hints_used,INTEGER,NULL,0,사용한 힌트 수,,
+submissions,xp_penalty,INTEGER,NULL,0,힌트 페널티 XP,,
+submissions,time_spent_seconds,INTEGER,NULL,,소요 시간 (초),,
+submissions,attempt_number,INTEGER,NULL,1,시도 횟수,,
+submissions,submitted_at,TIMESTAMPTZ,NULL,NOW(),제출 시각,,
+
+user_progress,id,UUID,NOT NULL,uuid_generate_v4(),진행상황 ID,PRIMARY KEY,
+user_progress,user_id,UUID,NOT NULL,,사용자 ID,FOREIGN KEY (users.id) ON DELETE CASCADE,✓
+user_progress,problem_id,UUID,NOT NULL,,문제 ID,FOREIGN KEY (problems.id) ON DELETE CASCADE,✓
+user_progress,status,TEXT,NOT NULL,,상태,CHECK (status IN ('locked','unlocked','in_progress','completed')),✓
+user_progress,is_unlocked,BOOLEAN,NULL,false,잠금 해제 여부,,
+user_progress,attempts,INTEGER,NULL,0,시도 횟수,,
+user_progress,best_score,NUMERIC(5,2),NULL,,최고 점수,,
+user_progress,completion_date,TIMESTAMPTZ,NULL,,완료 날짜,,
+user_progress,user_difficulty_rating,INTEGER,NULL,,사용자 난이도 평가 (1-10),CHECK (user_difficulty_rating >= 1 AND user_difficulty_rating <= 10),
+user_progress,created_at,TIMESTAMPTZ,NULL,NOW(),생성 시각,,
+user_progress,updated_at,TIMESTAMPTZ,NULL,NOW(),수정 시각,,
+
+skill_tree,id,UUID,NOT NULL,uuid_generate_v4(),스킬 노드 ID,PRIMARY KEY,
+skill_tree,node_id,TEXT,NOT NULL,,노드 고유 ID (예: magic-basics),UNIQUE,
+skill_tree,label,TEXT,NOT NULL,,노드 라벨,,
+skill_tree,description,TEXT,NULL,,노드 설명,,
+skill_tree,level,TEXT,NOT NULL,,레벨 (Beginner/Intermediate/Advanced),,✓
+skill_tree,age_range,TEXT,NULL,,대상 연령 (예: 8-9),,
+skill_tree,category,TEXT,NULL,,카테고리,,✓
+skill_tree,x_position,INTEGER,NULL,,시각화 X 좌표,,
+skill_tree,y_position,INTEGER,NULL,,시각화 Y 좌표,,
+skill_tree,problem_ids,UUID[],NULL,,연결된 문제 ID 배열,,
+skill_tree,prerequisite_node_ids,TEXT[],NULL,,선행 노드 ID 배열,,
+skill_tree,xp_required,INTEGER,NULL,0,필요 XP,,
+skill_tree,created_at,TIMESTAMPTZ,NULL,NOW(),생성 시각,,
+skill_tree,updated_at,TIMESTAMPTZ,NULL,NOW(),수정 시각,,
+
+rankings,id,UUID,NOT NULL,uuid_generate_v4(),랭킹 ID,PRIMARY KEY,
+rankings,user_id,UUID,NOT NULL,,사용자 ID,FOREIGN KEY (users.id) ON DELETE CASCADE,
+rankings,ranking_type,TEXT,NOT NULL,,랭킹 타입,CHECK (ranking_type IN ('global','season','category','hall_of_fame')),✓
+rankings,rank,INTEGER,NOT NULL,,순위,,✓
+rankings,points,INTEGER,NOT NULL,,포인트,,
+rankings,season_id,TEXT,NULL,,시즌 ID (예: 2024-spring),,✓
+rankings,category,TEXT,NULL,,카테고리 (카테고리별 랭킹),,
+rankings,title,TEXT,NULL,,칭호 (예: Euler Master),,
+rankings,snapshot_date,DATE,NOT NULL,CURRENT_DATE,스냅샷 날짜,,
+rankings,created_at,TIMESTAMPTZ,NULL,NOW(),생성 시각,,
+
+discussions,id,UUID,NOT NULL,uuid_generate_v4(),댓글 ID,PRIMARY KEY,
+discussions,problem_id,UUID,NOT NULL,,문제 ID,FOREIGN KEY (problems.id) ON DELETE CASCADE,✓
+discussions,user_id,UUID,NOT NULL,,작성자 ID,FOREIGN KEY (users.id) ON DELETE CASCADE,✓
+discussions,parent_comment_id,UUID,NULL,,부모 댓글 ID (대댓글),FOREIGN KEY (discussions.id),
+discussions,content,TEXT,NOT NULL,,댓글 내용,,
+discussions,content_html,TEXT,NULL,,렌더링된 HTML (LaTeX 포함),,
+discussions,upvotes,INTEGER,NULL,0,좋아요 수,,
+discussions,downvotes,INTEGER,NULL,0,싫어요 수,,
+discussions,is_solution_spoiler,BOOLEAN,NULL,false,스포일러 여부,,
+discussions,is_pinned,BOOLEAN,NULL,false,고정 여부,,
+discussions,created_at,TIMESTAMPTZ,NULL,NOW(),작성 시각,,✓
+discussions,updated_at,TIMESTAMPTZ,NULL,NOW(),수정 시각,,
+
+problem_relationships,id,UUID,NOT NULL,uuid_generate_v4(),관계 ID,PRIMARY KEY,
+problem_relationships,source_problem_id,UUID,NOT NULL,,시작 문제 ID,FOREIGN KEY (problems.id) ON DELETE CASCADE,✓
+problem_relationships,target_problem_id,UUID,NOT NULL,,대상 문제 ID,FOREIGN KEY (problems.id) ON DELETE CASCADE,✓
+problem_relationships,relationship_type,TEXT,NOT NULL,,관계 타입,CHECK (relationship_type IN ('prerequisite','derived','related','next','alternative')),✓
+problem_relationships,sequence_order,INTEGER,NULL,0,학습 경로 순서,,✓
+problem_relationships,priority,INTEGER,NULL,0,추천 우선순위,,
+problem_relationships,strength,NUMERIC(3,2),NULL,0.5,관계 강도 (0.00-1.00),,
+problem_relationships,concept,TEXT,NULL,,연결 개념 (예: Quadratic Equations),,
+problem_relationships,description,TEXT,NULL,,관계 설명,,
+problem_relationships,is_ai_generated,BOOLEAN,NULL,false,AI 생성 관계 여부,,
+problem_relationships,ai_confidence,NUMERIC(3,2),NULL,,AI 신뢰도,,
+problem_relationships,is_approved,BOOLEAN,NULL,true,관리자 승인 여부,,✓
+problem_relationships,approved_by,UUID,NULL,,승인자 ID,FOREIGN KEY (auth.users.id),
+problem_relationships,success_rate,NUMERIC(5,2),NULL,,학습 성공률 (%),,
+problem_relationships,created_at,TIMESTAMPTZ,NULL,NOW(),생성 시각,,
+problem_relationships,updated_at,TIMESTAMPTZ,NULL,NOW(),수정 시각,,
+
+ai_generated_problems_temp,id,UUID,NOT NULL,uuid_generate_v4(),임시 문제 ID,PRIMARY KEY,
+ai_generated_problems_temp,parent_problem_id,UUID,NULL,,원본 문제 ID,FOREIGN KEY (problems.id),✓
+ai_generated_problems_temp,title,TEXT,NOT NULL,,문제 제목,,
+ai_generated_problems_temp,content,TEXT,NOT NULL,,문제 내용 (KaTeX),,
+ai_generated_problems_temp,solution,TEXT,NULL,,문제 풀이 (KaTeX),,
+ai_generated_problems_temp,difficulty,INTEGER,NULL,,난이도 (1-10),,
+ai_generated_problems_temp,category_level1,TEXT,NULL,,카테고리 Level 1,,
+ai_generated_problems_temp,category_level2,TEXT,NULL,,카테고리 Level 2,,
+ai_generated_problems_temp,category_level3,TEXT,NULL,,카테고리 Level 3,,
+ai_generated_problems_temp,concepts,TEXT[],NULL,,포함된 개념들,,
+ai_generated_problems_temp,ai_model,TEXT,NULL,,AI 모델 (예: gpt-4o),,
+ai_generated_problems_temp,generation_prompt,TEXT,NULL,,생성 프롬프트,,
+ai_generated_problems_temp,ai_confidence,NUMERIC(3,2),NULL,,AI 신뢰도,,
+ai_generated_problems_temp,review_status,TEXT,NULL,pending,검토 상태,CHECK (review_status IN ('pending','approved','rejected','needs_revision')),✓
+ai_generated_problems_temp,reviewer_notes,TEXT,NULL,,검토자 메모,,
+ai_generated_problems_temp,created_at,TIMESTAMPTZ,NULL,NOW(),생성 시각,,
+ai_generated_problems_temp,reviewed_at,TIMESTAMPTZ,NULL,,검토 시각,,
+

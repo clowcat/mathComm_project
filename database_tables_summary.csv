@@ -1,0 +1,12 @@
+Table Name,Purpose,Total Columns,Primary Key,Foreign Keys,Indexes,Description
+categories,카테고리 계층 관리 ⭐,4,category_id (INTEGER),parent_id → categories.category_id,"level, parent_id",수학 문제 카테고리 3단계 계층 구조. 총 103개 (L1: 10개, L2: 34개, L3: 59개)
+problems,수학 문제 저장,25,id (UUID),"parent_problem_id → problems.id, category_level1/2/3 → categories.category_id","difficulty, category_level1, level, parent_problem_id, created_at",메인 문제 테이블. 문제 내용/풀이/난이도/카테고리 등 모든 정보 저장
+users,사용자 프로필,14,id (UUID),id → auth.users.id,"ranking_points, tier",Supabase Auth와 연동된 사용자 정보. XP/레벨/랭킹/스트릭 관리
+submissions,문제 제출 기록,14,id (UUID),"user_id → users.id, problem_id → problems.id","user_id, problem_id, status",사용자의 문제 풀이 제출 및 채점 결과 저장
+user_progress,사용자별 진행상황,11,id (UUID),"user_id → users.id, problem_id → problems.id","user_id, problem_id, status",각 사용자의 문제별 진행 상태 (locked/unlocked/completed)
+skill_tree,학습 경로 스킬트리,14,id (UUID),problem_ids → problems.id[],"level, category",문제 간 선행 관계 및 학습 경로 정의
+rankings,랭킹 시스템,9,id (UUID),user_id → users.id,"ranking_type, season_id, rank",시즌별/카테고리별/전체 랭킹 기록
+discussions,문제 토론/댓글,12,id (UUID),"problem_id → problems.id, user_id → users.id, parent_comment_id → discussions.id","problem_id, user_id, created_at",문제별 토론 및 댓글 시스템
+problem_relationships,문제 간 관계 ⭐,16,id (UUID),"source_problem_id → problems.id, target_problem_id → problems.id, approved_by → auth.users.id","source, target, type, sequence, approved, source+type",원 문제와 파생 문제/선행 문제/관련 문제 등의 관계 저장. 학습 경로 구성의 핵심
+ai_generated_problems_temp,AI 생성 문제 임시,17,id (UUID),parent_problem_id → problems.id,"review_status, parent_problem_id",AI가 생성한 문제의 관리자 검토 전 임시 저장
+
