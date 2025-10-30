@@ -1,10 +1,12 @@
-"use client"
+"use client";
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import Discussions from "./Discussions";
 
 // ------------------------------------------------------------
 // Utility data (mock)
@@ -22,16 +24,22 @@ const leaderboard = [
 function LeaderboardCard() {
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-base">Top Solvers (This Week)</CardTitle></CardHeader>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Top Solvers (This Week)</CardTitle>
+      </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {leaderboard.map((u, i) => (
             <div key={u.name} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Badge variant="secondary" className="w-6 justify-center">{i+1}</Badge>
+                <Badge variant="secondary" className="w-6 justify-center">
+                  {i + 1}
+                </Badge>
                 <div className="font-medium">{u.name}</div>
               </div>
-              <div className="text-sm text-muted-foreground">XP {u.xp} • 🔥 {u.streak}</div>
+              <div className="text-sm text-muted-foreground">
+                XP {u.xp} | Streak {u.streak}
+              </div>
             </div>
           ))}
         </div>
@@ -46,22 +54,12 @@ export default function Community() {
       <Tabs defaultValue="discussions">
         <TabsList>
           <TabsTrigger value="discussions">Problem Discussions</TabsTrigger>
-          <TabsTrigger value="theory">Theory Q&A</TabsTrigger>
+          <TabsTrigger value="theory">Theory Q&amp;A</TabsTrigger>
           <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
           <TabsTrigger value="peer">Peer Review</TabsTrigger>
         </TabsList>
         <TabsContent value="discussions" className="mt-4">
-          <div className="grid gap-3">
-            {["CRT hint for #1201","Geometric inversion trick","Pigeonhole principle proof idea"].map((t, i) => (
-              <div key={i} className="rounded-xl border p-3 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{t}</div>
-                  <div className="text-xs text-muted-foreground">Most Helpful • 24 replies</div>
-                </div>
-                <Button size="sm" variant="outline">Open</Button>
-              </div>
-            ))}
-          </div>
+          <Discussions />
         </TabsContent>
         <TabsContent value="theory" className="mt-4">
           <div className="rounded-xl border p-4 space-y-3">
@@ -75,10 +73,14 @@ export default function Community() {
         </TabsContent>
         <TabsContent value="peer" className="mt-4">
           <div className="rounded-xl border p-4">
-            <div className="text-sm text-muted-foreground">Submit your solution for community feedback and earn points by reviewing others.</div>
+            <div className="text-sm text-muted-foreground">
+              Submit your solution for community feedback and earn points by reviewing others.
+            </div>
             <div className="mt-3 flex items-center gap-2">
               <Button size="sm">Submit Solution</Button>
-              <Button size="sm" variant="outline">Review Queue</Button>
+              <Button size="sm" variant="outline">
+                Review Queue
+              </Button>
             </div>
           </div>
         </TabsContent>
