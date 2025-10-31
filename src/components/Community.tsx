@@ -11,6 +11,13 @@ import Discussions from "./Discussions";
 // ------------------------------------------------------------
 // Utility data (mock)
 // ------------------------------------------------------------
+export type CommunityTab = "discussions" | "theory" | "leaderboard" | "peer";
+
+type CommunityProps = {
+  activeTab?: CommunityTab;
+  onTabChange?: (tab: CommunityTab) => void;
+};
+
 const leaderboard = [
   { name: "Ada L.", xp: 12450, streak: 21 },
   { name: "Carl F.", xp: 11880, streak: 12 },
@@ -48,10 +55,14 @@ function LeaderboardCard() {
   );
 }
 
-export default function Community() {
+export default function Community({ activeTab = "discussions", onTabChange }: CommunityProps) {
+  const handleTabChange = (value: string) => {
+    onTabChange?.(value as CommunityTab);
+  };
+
   return (
     <div className="p-4">
-      <Tabs defaultValue="discussions">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="discussions">Problem Discussions</TabsTrigger>
           <TabsTrigger value="theory">Theory Q&amp;A</TabsTrigger>

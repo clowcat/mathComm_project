@@ -10,7 +10,7 @@ import { Crown, Flame, Search, MessageSquare, Trophy, LineChart, LayoutDashboard
 import Dashboard from "@/components/Dashboard";
 import Problems from "@/components/Problems";
 import Stats from "@/components/Stats";
-import Community from "@/components/Community";
+import Community, { CommunityTab } from "@/components/Community";
 import SkillTree from "@/components/SkillTree";
 
 // ------------------------------------------------------------
@@ -78,7 +78,7 @@ function SideNav({ active, onChange }: { active: string; onChange: (k: string) =
 /**
  * TopBar Component - Top navigation bar with search and quick actions
  */
-function TopBar() {
+function TopBar({ onCommunityNavigate }: { onCommunityNavigate: (tab: CommunityTab) => void }) {
   return (
     <div className="sticky top-0 z-20 flex items-center gap-3 border-b bg-white/70 backdrop-blur px-4 py-3">
       {/* Mobile Logo (hidden on desktop) */}
@@ -91,8 +91,24 @@ function TopBar() {
       </div>
       
       {/* Quick Action Buttons */}
-      <Button variant="ghost" size="sm" className="gap-1"><Trophy className="h-4 w-4"/>Leaderboard</Button>
-      <Button variant="ghost" size="sm" className="gap-1"><MessageSquare className="h-4 w-4"/>Discussions</Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1"
+        onClick={() => onCommunityNavigate("leaderboard")}
+      >
+        <Trophy className="h-4 w-4" />
+        Leaderboard
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1"
+        onClick={() => onCommunityNavigate("discussions")}
+      >
+        <MessageSquare className="h-4 w-4" />
+        Discussions
+      </Button>
       <Button size="sm" className="gap-1"><Flame className="h-4 w-4"/>Streak 8</Button>
     </div>
   );
@@ -105,11 +121,17 @@ function TopBar() {
 export default function MathQuestUIMock() {
   // State to track the currently active page/section
   const [page, setPage] = useState("dashboard");
+  const [communityTab, setCommunityTab] = useState<CommunityTab>("discussions");
+
+  const handleCommunityNavigate = (tab: CommunityTab) => {
+    setPage("community");
+    setCommunityTab(tab);
+  };
   
   return (
     <div className="h-screen w-full bg-gradient-to-b from-slate-50 to-white text-slate-900">
       {/* Top Navigation Bar */}
-      <TopBar />
+      <TopBar onCommunityNavigate={handleCommunityNavigate} />
       
       {/* Main Layout Container */}
       <div className="flex h-[calc(100vh-56px)]">
@@ -123,10 +145,9 @@ export default function MathQuestUIMock() {
           {page === "skill-tree" && <SkillTree />}
           {page === "problems" && <Problems />}
           {page === "stats" && <Stats />}
-          {page === "community" && <Community />}
+          {page === "community" && <Community activeTab={communityTab} onTabChange={setCommunityTab} />}
         </main>
       </div>
     </div>
   );
 }
-
