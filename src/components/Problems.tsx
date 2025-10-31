@@ -79,162 +79,153 @@ function ProblemDialog({ problem }: { problem: any }) {
   }, [solutionDraft]);
   
   return (
-    <DialogContent className="flex h-[90vh] w-[95vw] max-w-7xl flex-col overflow-hidden border-2 border-gray-200 bg-white text-sm shadow-2xl">
-      <div className="flex h-full flex-col overflow-hidden">
-        {/* Problem Header with metadata */}
-        <div className="flex-shrink-0">
-          <DialogHeader className="pb-4">
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              {problem.title}
-              {problem.unlocked ? <Unlock className="h-5 w-5 text-emerald-600" /> : <Lock className="h-5 w-5 text-red-500" />}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-gray-600 mb-3">Topic: Number Theory → Modular Arithmetic</div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <Badge className="bg-blue-100 text-blue-800">XP {problem.xp}</Badge>
-            <Badge variant="outline" className="border-gray-300 text-gray-700">{problem.difficulty}</Badge>
-            {problem.tags.map((t: string) => (
-              <Badge key={t} variant="secondary" className="bg-gray-100 text-gray-700">
-                {t}
-              </Badge>
-            ))}
+    <DialogContent className="flex w-[95vw] max-w-7xl max-h-[90vh] flex-col overflow-y-auto p-6 bg-white border-2 border-gray-200 text-sm text-gray-800 shadow-2xl">
+      <DialogHeader className="space-y-2">
+        <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+          {problem.title}
+          {problem.unlocked ? <Unlock className="h-5 w-5 text-emerald-600" /> : <Lock className="h-5 w-5 text-red-500" />}
+        </DialogTitle>
+      </DialogHeader>
+      <div className="text-sm text-gray-600">Topic: Number Theory → Modular Arithmetic</div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Badge className="bg-blue-100 text-blue-800">XP {problem.xp}</Badge>
+        <Badge variant="outline" className="border-gray-300 text-gray-700">
+          {problem.difficulty}
+        </Badge>
+        {problem.tags.map((tag: string) => (
+          <Badge key={tag} variant="secondary" className="bg-gray-100 text-gray-700">
+            {tag}
+          </Badge>
+        ))}
+      </div>
+
+      <Separator className="my-4" />
+
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <div className="text-gray-800 leading-relaxed">
+            <strong className="text-gray-900">Problem:</strong>{" "}
+            {problem.content || "Find all integers x such that x ≡ 7 (mod 13) and 5x ≡ 2 (mod 11)."}
           </div>
+          {problem.hint && (
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm text-blue-800">
+              <strong className="text-blue-900">Hint:</strong> <span className="ml-2">{problem.hint}</span>
+            </div>
+          )}
         </div>
 
-        <Separator className="my-4 flex-shrink-0" />
+        <Tabs value={tab} onValueChange={(value) => setTab(value as "write" | "auto")} className="space-y-4">
+          <TabsList className="bg-gray-100">
+            <TabsTrigger value="write" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+              Write Solution
+            </TabsTrigger>
+            <TabsTrigger value="auto" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
+              Auto-check
+            </TabsTrigger>
+          </TabsList>
 
-        <ScrollArea className="flex-1 pr-3">
-          <div className="space-y-6 pb-8 pr-1">
-            <div className="prose prose-sm max-w-none">
-              <div className="text-gray-800 leading-relaxed break-words whitespace-pre-line">
-                <strong className="text-gray-900">Problem:</strong>{" "}
-                {problem.content || "Find all integers x such that x ≡ 7 (mod 13) and 5x ≡ 2 (mod 11)."}
-              </div>
-              {problem.hint && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                  <strong className="text-blue-900">Hint:</strong> <span className="ml-2">{problem.hint}</span>
+          <TabsContent value="write">
+            <div className="space-y-4 p-4 bg-gray-50 rounded-xl border-2 border-gray-200">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <div className="border-b border-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Editor
+                  </div>
+                  <textarea
+                    className="flex-1 min-h-64 w-full resize-none p-4 bg-white text-xs leading-6 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500/70"
+                    placeholder="Type your proof with Markdown/LaTeX…"
+                    value={solutionDraft}
+                    onChange={(event) => setSolutionDraft(event.target.value)}
+                  ></textarea>
                 </div>
-              )}
-            </div>
-
-            <Tabs value={tab} onValueChange={(value) => setTab(value as "write" | "auto")} className="space-y-3">
-              <TabsList className="bg-gray-100">
-                <TabsTrigger value="write" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
-                  Write Solution
-                </TabsTrigger>
-                <TabsTrigger value="auto" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
-                  Auto-check
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Written Solution Tab */}
-              <TabsContent value="write">
-                <div className="space-y-4 rounded-xl border-2 border-gray-200 bg-gray-50 p-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                      <div className="border-b border-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Editor
-                      </div>
-                      <textarea
-                        className="min-h-[260px] w-full flex-1 resize-none bg-white p-4 text-xs leading-6 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500/70"
-                        placeholder="Type your proof with Markdown/LaTeX…"
-                        value={solutionDraft}
-                        onChange={(event) => setSolutionDraft(event.target.value)}
-                      ></textarea>
-                    </div>
-                    <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        <span>Preview</span>
-                        <span className="text-xs font-normal text-gray-400">{previewHeaderStatus}</span>
-                      </div>
-                      <div className="min-h-[220px] flex-1 overflow-auto bg-white p-4 text-xs leading-6 text-gray-800">
-                        {previewStatus === "loading" && <div className="text-xs text-gray-500">Rendering preview…</div>}
-                        {previewStatus === "error" && previewError && (
-                          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                            {previewError}
+                <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <span>Preview</span>
+                    <span className="text-xs font-normal text-gray-400">{previewHeaderStatus}</span>
+                  </div>
+                  <div className="flex-1 min-h-52 overflow-y-auto p-4 bg-white text-xs leading-6 text-gray-800">
+                    {previewStatus === "loading" && <div className="text-xs text-gray-500">Rendering preview…</div>}
+                    {previewStatus === "error" && previewError && (
+                      <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{previewError}</div>
+                    )}
+                    {previewStatus === "ready" && (
+                      <>
+                        {previewSource !== solutionDraft && (
+                          <div className="mb-3 px-3 py-2 bg-amber-50 rounded border border-amber-200 text-xs text-amber-700">
+                            Preview is out of date — click Preview again to refresh.
                           </div>
                         )}
-                        {previewStatus === "ready" && (
-                          <>
-                            {previewSource !== solutionDraft && (
-                              <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                                Preview is out of date — click Preview again to refresh.
-                              </div>
-                            )}
-                            {previewHtml ? (
-                              <MathPreview html={previewHtml} className="min-h-[200px]" />
-                            ) : (
-                              <div className="text-xs text-gray-500">Preview is empty.</div>
-                            )}
-                          </>
+                        {previewHtml ? (
+                          <MathPreview html={previewHtml} className="min-h-52" />
+                        ) : (
+                          <div className="text-xs text-gray-500">Preview is empty.</div>
                         )}
-                        {previewStatus === "idle" && !previewVisible && (
-                          <div className="text-xs text-gray-500">Click Preview to render your work.</div>
-                        )}
-                        {previewStatus === "idle" && previewVisible && (
-                          <div className="text-xs text-gray-500">Preview ready.</div>
-                        )}
-                      </div>
-                    </div>
+                      </>
+                    )}
+                    {previewStatus === "idle" && !previewVisible && (
+                      <div className="text-xs text-gray-500">Click Preview to render your work.</div>
+                    )}
+                    {previewStatus === "idle" && previewVisible && (
+                      <div className="text-xs text-gray-500">Preview ready.</div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">Submit Solution</Button>
-                    <Button
-                      variant="outline"
-                      className="border-gray-300 text-gray-700"
-                      onClick={handlePreviewClick}
-                      disabled={previewStatus === "loading"}
-                    >
-                      {previewStatus === "loading" ? "Rendering…" : "Preview"}
-                    </Button>
-                    <Button variant="ghost" className="gap-1 text-gray-600 hover:text-gray-800">
-                      <BookOpen className="h-4 w-4" /> Review Theory
-                    </Button>
-                    <Button variant="ghost" className="gap-1 text-gray-600 hover:text-gray-800">
-                      <Star className="h-4 w-4" /> Hint (−10 XP)
-                    </Button>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Auto-check Tab */}
-              <TabsContent value="auto">
-                <div className="rounded-xl border-2 border-gray-200 p-4 space-y-3 bg-gray-50">
-                  <div className="text-sm text-gray-700">Enter a numeric answer (if applicable):</div>
-                  <Input placeholder="e.g., 42" className="bg-white border-gray-300" />
-                  <div className="flex items-center gap-2">
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">Check</Button>
-                    <span className="text-xs text-gray-500">Auto-grading supports MCQ/short answer</span>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            <Separator className="my-4" />
-
-            <div>
-              <div className="mb-3 text-sm font-semibold text-gray-900">Discussion</div>
-              <div className="rounded-xl border-2 border-gray-200 p-4 space-y-3 max-h-32 overflow-auto bg-gray-50">
-                <div className="text-sm text-gray-800">
-                  <strong className="text-blue-600">Ada:</strong> Try reducing both congruences to a single modulus via CRT.
-                </div>
-                <div className="text-sm text-gray-800">
-                  <strong className="text-green-600">M. Seo:</strong> Solved using inverses mod 11 and mod 13, then combined.
-                </div>
-                <div className="text-sm text-gray-800">
-                  <strong className="text-purple-600">Carl:</strong> A hint: inverse of 5 mod 11 is 9.
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <Input placeholder="Write a comment…" className="bg-white border-gray-300" />
-                  <Button className="gap-1 bg-blue-600 hover:bg-blue-700 text-white" size="sm">
-                    <Send className="h-4 w-4" />
-                    Post
-                  </Button>
                 </div>
               </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button className="bg-blue-600 text-white hover:bg-blue-700">Submit Solution</Button>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700"
+                  onClick={handlePreviewClick}
+                  disabled={previewStatus === "loading"}
+                >
+                  {previewStatus === "loading" ? "Rendering…" : "Preview"}
+                </Button>
+                <Button variant="ghost" className="gap-1 text-gray-600 hover:text-gray-800">
+                  <BookOpen className="h-4 w-4" /> Review Theory
+                </Button>
+                <Button variant="ghost" className="gap-1 text-gray-600 hover:text-gray-800">
+                  <Star className="h-4 w-4" /> Hint (−10 XP)
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="auto">
+            <div className="space-y-3 p-4 bg-gray-50 rounded-xl border-2 border-gray-200">
+              <div className="text-sm text-gray-700">Enter a numeric answer (if applicable):</div>
+              <Input placeholder="e.g., 42" className="border border-gray-300 bg-white" />
+              <div className="flex items-center gap-2">
+                <Button className="bg-blue-600 text-white hover:bg-blue-700">Check</Button>
+                <span className="text-xs text-gray-500">Auto-grading supports MCQ/short answer</span>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-gray-900">Discussion</div>
+          <div className="max-h-32 space-y-3 overflow-y-auto p-4 bg-gray-50 rounded-xl border-2 border-gray-200">
+            <div className="text-sm text-gray-800">
+              <strong className="text-blue-600">Ada:</strong> Try reducing both congruences to a single modulus via CRT.
+            </div>
+            <div className="text-sm text-gray-800">
+              <strong className="text-green-600">M. Seo:</strong> Solved using inverses mod 11 and mod 13, then combined.
+            </div>
+            <div className="text-sm text-gray-800">
+              <strong className="text-purple-600">Carl:</strong> A hint: inverse of 5 mod 11 is 9.
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <Input placeholder="Write a comment…" className="border border-gray-300 bg-white" />
+              <Button className="gap-1 bg-blue-600 text-white hover:bg-blue-700" size="sm">
+                <Send className="h-4 w-4" />
+                Post
+              </Button>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </DialogContent>
   );
