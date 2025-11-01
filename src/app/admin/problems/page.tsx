@@ -100,6 +100,9 @@ export default function ProblemManagementPage() {
   // Expanded problems state (for showing linked problems)
   const [expandedProblems, setExpandedProblems] = useState<Set<string>>(new Set());
   
+  // Editor dialog state
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  
   // Toast notification state
   const [toast, setToast] = useState<{show: boolean; message: string; type: "success" | "error"}>({
     show: false,
@@ -267,6 +270,7 @@ export default function ProblemManagementPage() {
     setUploadedFile(null);
     setUploadedFilePreview("");
     setExtractedDiagrams([]);
+    setIsEditorOpen(true); // Open the editor dialog
   };
 
   const handleNewProblem = () => {
@@ -829,6 +833,9 @@ export default function ProblemManagementPage() {
   // Enhanced filtering and sorting
   const filteredProblems = problems
     .filter(p => {
+      // Only show root problems (not derived problems)
+      const isRootProblem = !p.parentProblemId;
+      
       // Search filter
       const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -847,7 +854,7 @@ export default function ProblemManagementPage() {
         else if (filterDifficulty === "olympic") matchesDifficulty = p.difficulty === 10;
       }
       
-      return matchesSearch && matchesCategory && matchesDifficulty;
+      return isRootProblem && matchesSearch && matchesCategory && matchesDifficulty;
     })
     .sort((a, b) => {
       if (sortBy === "newest") {
@@ -1047,6 +1054,17 @@ export default function ProblemManagementPage() {
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
+            <Button
+              onClick={() => {
+                handleNewProblem();
+                setIsEditorOpen(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+              size="sm"
+            >
+              <span className="text-lg leading-none">+</span>
+              New Problem
+            </Button>
           </div>
         </header>
         <Separator />
@@ -1075,9 +1093,8 @@ export default function ProblemManagementPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Problem List Section (Left) */}
-          <div className="md:col-span-1">
+        {/* Problem List Section (Full Width) */}
+        <div className="w-full"
             <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
               <CardHeader className="p-4">
                 <div className="flex items-center justify-between">
@@ -1417,16 +1434,21 @@ export default function ProblemManagementPage() {
               </CardContent>
             </Card>
           </div>
+        </div>
+      </div>
 
-          {/* Problem Editor Section (Right) */}
-          <div className="md:col-span-2">
-            <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <CardHeader className="p-6">
-                <CardTitle className="text-xl font-semibold text-gray-800">
-                  {isEditing ? "Edit Problem" : "New Problem"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
+      {/* Problem Editor Dialog (Full Screen Modal) */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 overflow-hidden">
+          <div className="flex flex-col h-full">
+            <DialogHeader className="p-6 border-b">
+              <DialogTitle className="text-2xl font-semibold text-gray-800">
+                {isEditing ? "Edit Problem" : "New Problem"}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-6xl mx-auto space-y-4">
                 {/* Input Method Tabs */}
                 <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "manual" | "file")}>
                   <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
@@ -2053,11 +2075,11 @@ export default function ProblemManagementPage() {
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
