@@ -17,9 +17,9 @@ export interface Problem {
   content: string;
   solution?: string;
   difficulty: number;  // 1-10
-  category_level1?: string;
-  category_level2?: string;
-  category_level3?: string;
+  category_level1?: number;  // INTEGER ID from categories table
+  category_level2?: number;  // INTEGER ID from categories table
+  category_level3?: number;  // INTEGER ID from categories table
   category_path?: string;
   level?: string;  // "Beginner", "Intermediate", etc.
   age_range?: string;  // "8-9", "9-11", etc.

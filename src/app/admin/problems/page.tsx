@@ -705,7 +705,9 @@ export default function ProblemManagementPage() {
         try {
           const savedProblem = await saveProblemToSupabase(updatedProblem);
           // Update with Supabase ID
-          updatedProblem.id = savedProblem.id;
+          if (savedProblem) {
+            updatedProblem.id = savedProblem.id;
+          }
         } catch (error: any) {
           showToast(`⚠️ Saved locally but DB sync failed: ${error.message}`, "error");
         }
@@ -750,7 +752,9 @@ export default function ProblemManagementPage() {
         try {
           const savedProblem = await saveProblemToSupabase(newProblem);
           // Replace temp ID with real Supabase ID
-          newProblem.id = savedProblem.id;
+          if (savedProblem) {
+            newProblem.id = savedProblem.id;
+          }
         } catch (error: any) {
           showToast(`⚠️ Saved locally but DB sync failed: ${error.message}`, "error");
         }
@@ -831,6 +835,12 @@ export default function ProblemManagementPage() {
         };
         
         const savedProblem = await saveProblemToSupabase(problemToSave);
+        
+        if (!savedProblem) {
+          console.error(`${'  '.repeat(depth)}❌ Failed to save: "${problem.title}"`);
+          return;
+        }
+        
         const oldId = problem.id;
         const newId = savedProblem.id;
         
