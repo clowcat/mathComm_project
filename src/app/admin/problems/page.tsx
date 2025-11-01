@@ -266,8 +266,10 @@ export default function ProblemManagementPage() {
 
   // Drag and Drop handlers for creating links
   const handleDragStart = (e: React.DragEvent, problemId: string) => {
+    console.log('🎯 Drag started:', problemId);
     setDraggedProblemId(problemId);
     e.dataTransfer.effectAllowed = 'link';
+    e.dataTransfer.setData('text/plain', problemId);
     // Add visual feedback
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '0.5';
@@ -275,27 +277,42 @@ export default function ProblemManagementPage() {
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
+    console.log('🏁 Drag ended');
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '1';
     }
-    setDraggedProblemId(null);
-    setDropTargetId(null);
+    // Don't reset immediately - let drop handler complete first
+    setTimeout(() => {
+      if (!showLinkDialog) {
+        setDraggedProblemId(null);
+        setDropTargetId(null);
+      }
+    }, 100);
   };
 
   const handleDragOver = (e: React.DragEvent, problemId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'link';
-    setDropTargetId(problemId);
+    if (draggedProblemId && draggedProblemId !== problemId) {
+      setDropTargetId(problemId);
+    }
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    setDropTargetId(null);
+  const handleDragLeave = (e: React.DragEvent, problemId: string) => {
+    if (dropTargetId === problemId) {
+      setDropTargetId(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent, targetProblemId: string) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('📍 Drop on:', targetProblemId, 'from:', draggedProblemId);
     
     if (!draggedProblemId || draggedProblemId === targetProblemId) {
+      console.log('⚠️ Invalid drop: same problem or no source');
       setDraggedProblemId(null);
       setDropTargetId(null);
       return;
@@ -305,7 +322,10 @@ export default function ProblemManagementPage() {
     const sourceProblem = problems.find(p => p.id === draggedProblemId);
     const targetProblem = problems.find(p => p.id === targetProblemId);
     
-    if (!sourceProblem || !targetProblem) return;
+    if (!sourceProblem || !targetProblem) {
+      console.log('⚠️ Problem not found');
+      return;
+    }
 
     // Check for existing link
     const hasExistingLink = sourceProblem.linkedProblems?.includes(targetProblemId) ||
@@ -321,6 +341,7 @@ export default function ProblemManagementPage() {
     }
 
     // Open dialog to select link type
+    console.log('✅ Opening link dialog');
     setShowLinkDialog(true);
   };
 
@@ -1394,7 +1415,7 @@ export default function ProblemManagementPage() {
                                       e.stopPropagation();
                                       handleDragOver(e, rootProblem.id);
                                     }}
-                                    onDragLeave={handleDragLeave}
+                                    onDragLeave={(e) => handleDragLeave(e, rootProblem.id)}
                                     onDrop={(e) => {
                                       e.stopPropagation();
                                       handleDrop(e, rootProblem.id);
@@ -1437,15 +1458,14 @@ export default function ProblemManagementPage() {
                                           return (
                                             <div key={derived.id} className="relative">
                                               {/* Connection Line */}
-                                              {idx === 0 && (
-                                                <svg 
-                                                  className="absolute top-1/2 -left-8 w-8 h-1" 
-                                                  style={{transform: 'translateY(-50%)'}}
-                                                >
-                                                  <line x1="0" y1="0" x2="32" y2="0" stroke="#CBD5E1" strokeWidth="2" />
-                                                  <polygon points="28,0 32,0 28,4" fill="#CBD5E1" />
-                                                </svg>
-                                              )}
+                                              <svg 
+                                                className="absolute top-1/2 -left-8 w-8 h-4 pointer-events-none" 
+                                                style={{transform: 'translateY(-50%)'}}
+                                                viewBox="0 0 32 4"
+                                              >
+                                                <line x1="0" y1="2" x2="28" y2="2" stroke="#94A3B8" strokeWidth="2" />
+                                                <polygon points="28,0 32,2 28,4" fill="#94A3B8" />
+                                              </svg>
                                               
                                               <div 
                                                 className="group cursor-grab active:cursor-grabbing"
@@ -1459,7 +1479,7 @@ export default function ProblemManagementPage() {
                                                   e.stopPropagation();
                                                   handleDragOver(e, derived.id);
                                                 }}
-                                                onDragLeave={handleDragLeave}
+                                                onDragLeave={(e) => handleDragLeave(e, derived.id)}
                                                 onDrop={(e) => {
                                                   e.stopPropagation();
                                                   handleDrop(e, derived.id);
@@ -1514,7 +1534,7 @@ export default function ProblemManagementPage() {
                                                         e.stopPropagation();
                                                         handleDragOver(e, grandchild.id);
                                                       }}
-                                                      onDragLeave={handleDragLeave}
+                                                      onDragLeave={(e) => handleDragLeave(e, grandchild.id)}
                                                       onDrop={(e) => {
                                                         e.stopPropagation();
                                                         handleDrop(e, grandchild.id);
@@ -1525,9 +1545,9 @@ export default function ProblemManagementPage() {
                                                         }
                                                       }}
                                                     >
-                                                      <svg className="absolute top-1/2 -left-8 w-8 h-1" style={{transform: 'translateY(-50%)'}}>
-                                                        <line x1="0" y1="0" x2="32" y2="0" stroke="#A7F3D0" strokeWidth="2" />
-                                                        <polygon points="28,0 32,0 28,4" fill="#A7F3D0" />
+                                                      <svg className="absolute top-1/2 -left-8 w-8 h-4 pointer-events-none" style={{transform: 'translateY(-50%)'}} viewBox="0 0 32 4">
+                                                        <line x1="0" y1="2" x2="28" y2="2" stroke="#6EE7B7" strokeWidth="2" />
+                                                        <polygon points="28,0 32,2 28,4" fill="#6EE7B7" />
                                                       </svg>
                                                       <div className={`
                                                         p-3 rounded-lg border bg-white shadow-sm transition-all w-48
@@ -1902,15 +1922,15 @@ export default function ProblemManagementPage() {
 
         {/* Problem Editor Dialog (Full Screen Modal) */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-          <DialogContent className="!max-w-[98vw] max-h-[98vh] w-full h-full p-0 overflow-hidden bg-white shadow-2xl">
-            <div className="flex flex-col h-full">
-              <DialogHeader className="p-6 border-b">
+          <DialogContent className="!max-w-[98vw] !max-h-[98vh] w-full h-full p-0 overflow-hidden bg-white shadow-2xl">
+            <div className="flex flex-col h-full max-h-[98vh]">
+              <DialogHeader className="p-6 border-b flex-shrink-0">
                 <DialogTitle className="text-2xl font-semibold text-gray-800">
                   {isEditing ? "Edit Problem" : "New Problem"}
                 </DialogTitle>
               </DialogHeader>
               
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6 min-h-0">
                 <div className="w-full space-y-4">
                 {/* Input Method Tabs */}
                 <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "manual" | "file")}>
