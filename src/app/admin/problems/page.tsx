@@ -309,9 +309,6 @@ export default function ProblemManagementPage() {
           const savedProblem = await saveProblemToSupabase(updatedProblem);
           // Update with Supabase ID
           updatedProblem.id = savedProblem.id;
-          
-          // Save derived problems if any exist
-          await saveDerivedProblems(updatedProblem.id);
         } catch (error: any) {
           showToast(`⚠️ Saved locally but DB sync failed: ${error.message}`, "error");
         }
@@ -320,6 +317,16 @@ export default function ProblemManagementPage() {
       setProblems(problems.map(p => 
         p.id === selectedProblem.id ? updatedProblem : p
       ));
+      
+      // Save derived problems AFTER updating problems array
+      if (isDbConnected) {
+        try {
+          await saveDerivedProblems(updatedProblem.id);
+        } catch (error: any) {
+          console.error('Failed to save derived problems:', error);
+          showToast(`⚠️ Derived problems not saved: ${error.message}`, "error");
+        }
+      }
       
       // Keep the updated problem selected
       setSelectedProblem(updatedProblem);
@@ -341,21 +348,28 @@ export default function ProblemManagementPage() {
       };
       
       // Save to Supabase if connected
+      let oldId = newProblem.id;
       if (isDbConnected) {
         try {
           const savedProblem = await saveProblemToSupabase(newProblem);
-          const oldId = newProblem.id;
           // Replace temp ID with real Supabase ID
           newProblem.id = savedProblem.id;
-          
-          // Save derived problems if any exist
-          await saveDerivedProblems(newProblem.id, oldId);
         } catch (error: any) {
           showToast(`⚠️ Saved locally but DB sync failed: ${error.message}`, "error");
         }
       }
       
       setProblems([...problems, newProblem]);
+      
+      // Save derived problems AFTER updating problems array
+      if (isDbConnected && newProblem.id !== oldId) {
+        try {
+          await saveDerivedProblems(newProblem.id, oldId);
+        } catch (error: any) {
+          console.error('Failed to save derived problems:', error);
+          showToast(`⚠️ Derived problems not saved: ${error.message}`, "error");
+        }
+      }
       
       // Select the newly created problem and switch to editing mode
       setSelectedProblem(newProblem);
@@ -370,14 +384,20 @@ export default function ProblemManagementPage() {
 
   // Helper function to save derived problems
   const saveDerivedProblems = async (parentProblemId: string, oldParentId?: string) => {
+    // Get current problems state to find derived problems
+    const currentProblems = problems;
+    
     // Find all derived problems linked to this parent
-    const derivedProblems = problems.filter(p => 
+    const derivedProblems = currentProblems.filter(p => 
       p.isGenerated === true && 
       (p.parentProblemId === parentProblemId || p.parentProblemId === oldParentId) &&
       p.id.startsWith('temp-derived-')  // Only unsaved derived problems
     );
     
-    if (derivedProblems.length === 0) return;
+    if (derivedProblems.length === 0) {
+      console.log('ℹ️ No unsaved derived problems found');
+      return;
+    }
     
     console.log(`💾 Saving ${derivedProblems.length} derived problems...`);
     
@@ -394,6 +414,8 @@ export default function ProblemManagementPage() {
         
         const savedDerived = await saveProblemToSupabase(problemToSave);
         const oldDerivedId = derivedProblem.id;
+        
+        console.log(`✅ Saved derived problem: ${savedDerived.id} (was ${oldDerivedId})`);
         
         // Update the problem in local state with new ID
         setProblems(prev => prev.map(p => 
@@ -422,12 +444,13 @@ export default function ProblemManagementPage() {
           );
           console.log(`✅ Relationship created: ${parentProblemId} -> ${savedDerived.id}`);
         } catch (relError: any) {
-          console.warn('⚠️ Failed to create problem relationship:', relError.message);
+          console.warn('⚠️ Failed to create problem relationship (table may not exist or RLS enabled):', relError.message);
+          // Don't fail the entire operation if relationship creation fails
         }
         
         successCount++;
       } catch (error: any) {
-        console.error(`Failed to save derived problem "${derivedProblem.title}":`, error.message);
+        console.error(`❌ Failed to save derived problem "${derivedProblem.title}":`, error.message);
       }
     }
     
@@ -447,6 +470,8 @@ export default function ProblemManagementPage() {
     
     if (successCount > 0) {
       showToast(`✅ Saved ${successCount} derived problem(s) to database!`, "success");
+    } else if (derivedProblems.length > 0) {
+      showToast(`⚠️ Failed to save ${derivedProblems.length} derived problem(s)`, "error");
     }
   };
 
