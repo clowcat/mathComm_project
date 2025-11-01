@@ -1435,10 +1435,9 @@ export default function ProblemManagementPage() {
             </Card>
           </div>
         </div>
-      </div>
 
-      {/* Problem Editor Dialog (Full Screen Modal) */}
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        {/* Problem Editor Dialog (Full Screen Modal) */}
+        <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 overflow-hidden">
           <div className="flex flex-col h-full">
             <DialogHeader className="p-6 border-b">
@@ -2079,7 +2078,8 @@ export default function ProblemManagementPage() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
     </div>
   );
 }
