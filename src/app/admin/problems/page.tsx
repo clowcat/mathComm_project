@@ -346,10 +346,21 @@ export default function ProblemManagementPage() {
   };
 
   const handleCreateLink = async () => {
-    if (!draggedProblemId || !dropTargetId) return;
+    if (!draggedProblemId || !dropTargetId) {
+      console.error('⚠️ Missing IDs:', { draggedProblemId, dropTargetId });
+      return;
+    }
+
+    console.log('🔗 Creating link:', {
+      from: draggedProblemId,
+      to: dropTargetId,
+      type: linkType,
+      concept: linkConcept
+    });
 
     try {
       // Create relationship in problem_relationships table
+      console.log('📝 Saving to problem_relationships...');
       await problemRelationshipsAPI.create(
         draggedProblemId,
         dropTargetId,
@@ -361,6 +372,7 @@ export default function ProblemManagementPage() {
           sequenceOrder: 0
         }
       );
+      console.log('✅ Relationship created in DB');
 
       // Update local state
       setProblems(prev => prev.map(p => {
@@ -370,14 +382,17 @@ export default function ProblemManagementPage() {
         }
         return p;
       }));
+      console.log('✅ Local state updated');
 
       // Update in database
       const sourceProblem = problems.find(p => p.id === draggedProblemId);
       if (sourceProblem) {
         const updatedLinkedIds = [...(sourceProblem.linkedProblems || []), dropTargetId];
+        console.log('📝 Updating linked_problem_ids in problems table...');
         await problemsAPI.update(draggedProblemId, {
           linked_problem_ids: updatedLinkedIds
         });
+        console.log('✅ Problems table updated');
       }
 
       showToast(`✅ Created ${linkType} link successfully!`, "success");
@@ -389,10 +404,13 @@ export default function ProblemManagementPage() {
       setLinkConcept("");
       
       // Refresh from database
+      console.log('🔄 Refreshing from database...');
       await loadProblemsFromSupabase();
+      console.log('✅ Link creation complete!');
       
     } catch (error: any) {
-      console.error('Failed to create link:', error);
+      console.error('❌ Failed to create link:', error);
+      console.error('Error details:', error.message, error.stack);
       showToast(`❌ Failed to create link: ${error.message}`, "error");
     }
   };
@@ -1404,7 +1422,9 @@ export default function ProblemManagementPage() {
                                 <div className="relative">
                                   {/* Root Problem Card */}
                                   <div 
-                                    className="inline-block align-top mr-8 group cursor-grab active:cursor-grabbing"
+                                    className={`inline-block align-top mr-8 group cursor-grab active:cursor-grabbing transition-opacity ${
+                                      draggedProblemId === rootProblem.id ? 'opacity-50' : 'opacity-100'
+                                    }`}
                                     draggable
                                     onDragStart={(e) => {
                                       e.stopPropagation();
@@ -1468,7 +1488,9 @@ export default function ProblemManagementPage() {
                                               </svg>
                                               
                                               <div 
-                                                className="group cursor-grab active:cursor-grabbing"
+                                                className={`group cursor-grab active:cursor-grabbing transition-opacity ${
+                                                  draggedProblemId === derived.id ? 'opacity-50' : 'opacity-100'
+                                                }`}
                                                 draggable
                                                 onDragStart={(e) => {
                                                   e.stopPropagation();
@@ -1523,7 +1545,9 @@ export default function ProblemManagementPage() {
                                                   {grandchildren.map((grandchild) => (
                                                     <div 
                                                       key={grandchild.id}
-                                                      className="relative cursor-grab active:cursor-grabbing"
+                                                      className={`relative cursor-grab active:cursor-grabbing transition-opacity ${
+                                                        draggedProblemId === grandchild.id ? 'opacity-50' : 'opacity-100'
+                                                      }`}
                                                       draggable
                                                       onDragStart={(e) => {
                                                         e.stopPropagation();
@@ -1614,21 +1638,23 @@ export default function ProblemManagementPage() {
                               onClick={() => handleSelectProblem(problem)}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                {/* Expand/Collapse Button */}
-                                {hasLinkedProblems && !problem.isGenerated && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleExpanded(problem.id);
-                                    }}
-                                    className="text-gray-500 hover:text-gray-700 transition-transform"
-                                    style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                                  >
-                                    ▶
-                                  </button>
-                                )}
+                                {/* Expand/Collapse Button (always reserve space) */}
+                                <div className="w-6 flex-shrink-0 flex items-center justify-center">
+                                  {hasLinkedProblems && !problem.isGenerated && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleExpanded(problem.id);
+                                      }}
+                                      className="text-gray-500 hover:text-gray-700 transition-transform"
+                                      style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                                    >
+                                      ▶
+                                    </button>
+                                  )}
+                                </div>
                                 
-                                <div className={`flex-1 ${hasLinkedProblems && !problem.isGenerated ? '' : 'ml-6'}`}>
+                                <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <h3 className="text-sm font-medium text-gray-800">{problem.title}</h3>
                                     {problem.isGenerated && (
