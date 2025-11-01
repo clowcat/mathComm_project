@@ -255,5 +255,38 @@ export const problemRelationshipsAPI = {
     if (error) throw error;
     return data;
   },
+
+  // Get learning path for a problem (all relationships)
+  async getLearningPath(problemId: string) {
+    const { data, error } = await supabase
+      .from('problem_relationships')
+      .select(`
+        *,
+        source_problem:problems!source_problem_id(*),
+        target_problem:problems!target_problem_id(*)
+      `)
+      .or(`source_problem_id.eq.${problemId},target_problem_id.eq.${problemId}`)
+      .eq('is_approved', true);
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Get next problems (using 'next' relationship type)
+  async getNextProblems(problemId: string) {
+    const { data, error } = await supabase
+      .from('problem_relationships')
+      .select(`
+        *,
+        target_problem:problems!target_problem_id(*)
+      `)
+      .eq('source_problem_id', problemId)
+      .eq('relationship_type', 'next')
+      .eq('is_approved', true)
+      .order('sequence_order', { ascending: true });
+    
+    if (error) throw error;
+    return data;
+  },
 };
 

@@ -128,6 +128,20 @@ export default function MathQuestUIMock() {
     setCommunityTab(tab);
   };
   
+  // Listen for navigation events from child components (like Dashboard)
+  React.useEffect(() => {
+    const handleNavigate = (event: CustomEvent) => {
+      if (event.detail?.page) {
+        setPage(event.detail.page);
+      }
+    };
+    
+    window.addEventListener('navigate-to-page', handleNavigate as EventListener);
+    return () => {
+      window.removeEventListener('navigate-to-page', handleNavigate as EventListener);
+    };
+  }, []);
+  
   return (
     <div className="h-screen w-full bg-gradient-to-b from-slate-50 to-white text-slate-900">
       {/* Top Navigation Bar */}
