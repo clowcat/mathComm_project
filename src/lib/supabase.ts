@@ -191,3 +191,69 @@ export function categoryToTags(categoryPath: string): string[] {
   return categoryPath.split(' > ').map(c => c.trim());
 }
 
+// Problem Relationships API
+export const problemRelationshipsAPI = {
+  // Create a relationship between two problems
+  async create(
+    sourceProblemId: string,
+    targetProblemId: string,
+    relationshipType: 'prerequisite' | 'derived' | 'related' | 'next' | 'alternative',
+    options?: {
+      concept?: string;
+      description?: string;
+      sequenceOrder?: number;
+      priority?: number;
+      strength?: number;
+    }
+  ) {
+    const { data, error } = await supabase
+      .from('problem_relationships')
+      .insert([{
+        source_problem_id: sourceProblemId,
+        target_problem_id: targetProblemId,
+        relationship_type: relationshipType,
+        concept: options?.concept,
+        description: options?.description,
+        sequence_order: options?.sequenceOrder || 0,
+        priority: options?.priority || 0,
+        strength: options?.strength || 0.5,
+        is_ai_generated: true,
+        is_approved: true,
+      }])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Failed to create problem relationship:', error);
+      throw new Error(`Failed to create relationship: ${error.message || JSON.stringify(error)}`);
+    }
+    return data;
+  },
+
+  // Get all relationships for a problem
+  async getBySourceProblem(sourceProblemId: string) {
+    const { data, error } = await supabase
+      .from('problem_relationships')
+      .select('*')
+      .eq('source_problem_id', sourceProblemId);
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Get derived problems (children)
+  async getDerivedProblems(parentProblemId: string) {
+    const { data, error } = await supabase
+      .from('problem_relationships')
+      .select(`
+        *,
+        target_problem:problems!target_problem_id(*)
+      `)
+      .eq('source_problem_id', parentProblemId)
+      .eq('relationship_type', 'derived');
+    
+    if (error) throw error;
+    return data;
+  },
+};
+
