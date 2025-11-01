@@ -109,6 +109,8 @@ export default function ProblemManagementPage() {
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [linkType, setLinkType] = useState<'prerequisite' | 'derived' | 'related' | 'next' | 'alternative'>('derived');
   const [linkConcept, setLinkConcept] = useState("");
+  const [showLinkManagerDialog, setShowLinkManagerDialog] = useState(false);
+  const [linkManagerProblemId, setLinkManagerProblemId] = useState<string | null>(null);
   
   // Toast notification state
   const [toast, setToast] = useState<{show: boolean; message: string; type: "success" | "error"}>({
@@ -416,7 +418,12 @@ export default function ProblemManagementPage() {
   };
 
   const handleDeleteLink = async (sourceProblemId: string, targetProblemId: string) => {
-    if (!confirm("Delete this link?")) return;
+    const sourceProblem = problems.find(p => p.id === sourceProblemId);
+    const targetProblem = problems.find(p => p.id === targetProblemId);
+    
+    if (!confirm(`이 링크를 삭제하시겠습니까?\n\n"${sourceProblem?.title}"\n↓\n"${targetProblem?.title}"`)) return;
+
+    console.log('🗑️ Deleting link:', { from: sourceProblemId, to: targetProblemId });
 
     try {
       // Remove from local state
@@ -432,22 +439,25 @@ export default function ProblemManagementPage() {
       }));
 
       // Update in database
-      const sourceProblem = problems.find(p => p.id === sourceProblemId);
       if (sourceProblem) {
         const updatedLinkedIds = (sourceProblem.linkedProblems || []).filter(id => id !== targetProblemId);
+        console.log('📝 Updating problems table...');
         await problemsAPI.update(sourceProblemId, {
           linked_problem_ids: updatedLinkedIds
         });
+        console.log('✅ Problems table updated');
       }
 
-      showToast("🗑️ Link deleted successfully", "success");
+      showToast("✅ 링크가 삭제되었습니다", "success");
       
       // Refresh from database
+      console.log('🔄 Refreshing from database...');
       await loadProblemsFromSupabase();
+      console.log('✅ Link deletion complete!');
       
     } catch (error: any) {
-      console.error('Failed to delete link:', error);
-      showToast(`❌ Failed to delete link: ${error.message}`, "error");
+      console.error('❌ Failed to delete link:', error);
+      showToast(`❌ 링크 삭제 실패: ${error.message}`, "error");
     }
   };
 
@@ -1455,9 +1465,22 @@ export default function ProblemManagementPage() {
                                           : 'border-gray-300 hover:border-blue-400 hover:shadow-lg'}
                                       w-64
                                     `}>
+                                      {/* Link Manager Button */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLinkManagerProblemId(rootProblem.id);
+                                          setShowLinkManagerDialog(true);
+                                        }}
+                                        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors"
+                                        title="링크 관리"
+                                      >
+                                        🔗
+                                      </button>
+                                      
                                       <div className="flex items-center gap-2 mb-2">
                                         <span className="text-2xl">🔒</span>
-                                        <div className="flex-1">
+                                        <div className="flex-1 pr-6">
                                           <div className="font-semibold text-sm text-gray-800">{rootProblem.title}</div>
                                           <div className="text-xs text-gray-500 mt-1">
                                             {getDifficultyLabel(rootProblem.difficulty)} • D{rootProblem.difficulty}
@@ -1521,9 +1544,22 @@ export default function ProblemManagementPage() {
                                                       : 'border-green-300 hover:border-green-500 hover:shadow-lg'}
                                                   w-56
                                                 `}>
+                                                  {/* Link Manager Button */}
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setLinkManagerProblemId(derived.id);
+                                                      setShowLinkManagerDialog(true);
+                                                    }}
+                                                    className="absolute top-2 left-2 w-6 h-6 flex items-center justify-center rounded bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors z-10"
+                                                    title="링크 관리"
+                                                  >
+                                                    🔗
+                                                  </button>
+                                                  
                                                   <div className="flex items-center gap-2 mb-2">
                                                     <span className="text-xl">🌱</span>
-                                                    <div className="flex-1">
+                                                    <div className="flex-1 pl-4">
                                                       <div className="font-semibold text-sm text-gray-800">{derived.title}</div>
                                                       <div className="text-xs text-gray-500 mt-1">
                                                         {getDifficultyLabel(derived.difficulty)} • D{derived.difficulty}
@@ -1574,16 +1610,29 @@ export default function ProblemManagementPage() {
                                                         <polygon points="28,0 32,2 28,4" fill="#6EE7B7" />
                                                       </svg>
                                                       <div className={`
-                                                        p-3 rounded-lg border bg-white shadow-sm transition-all w-48
+                                                        relative p-3 rounded-lg border bg-white shadow-sm transition-all w-48
                                                         ${dropTargetId === grandchild.id && draggedProblemId !== grandchild.id
                                                           ? 'border-green-500 border-dashed shadow-lg ring-2 ring-green-200'
                                                           : selectedProblem?.id === grandchild.id 
                                                             ? 'border-green-500 shadow-md' 
                                                             : 'border-green-200 hover:border-green-400'}
                                                       `}>
+                                                        {/* Link Manager Button */}
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setLinkManagerProblemId(grandchild.id);
+                                                            setShowLinkManagerDialog(true);
+                                                          }}
+                                                          className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-blue-100 text-xs transition-colors z-10"
+                                                          title="링크 관리"
+                                                        >
+                                                          🔗
+                                                        </button>
+                                                        
                                                         <div className="flex items-center gap-2">
                                                           <span className="text-sm">🌿</span>
-                                                          <div className="flex-1 min-w-0">
+                                                          <div className="flex-1 min-w-0 pr-6">
                                                             <div className="text-xs font-medium text-gray-700 truncate">{grandchild.title}</div>
                                                             <div className="text-xs text-gray-400">D{grandchild.difficulty}</div>
                                                           </div>
@@ -1717,7 +1766,7 @@ export default function ProblemManagementPage() {
                             
                             {/* Expanded Linked Problems - Hierarchical Tree View */}
                             {isExpanded && hasLinkedProblems && !problem.isGenerated && (
-                              <div className="ml-6 mt-2">
+                              <div className="mt-2">
                                 {/* Recursive function to render problem hierarchy */}
                                 {(() => {
                                   const renderProblemTree = (parentId: string, depth: number = 0): JSX.Element[] => {
@@ -1737,20 +1786,23 @@ export default function ProblemManagementPage() {
                                           {depth > 0 && (
                                             <div 
                                               className="absolute left-0 top-0 bottom-0 w-px bg-green-200"
-                                              style={{ left: `${(depth - 1) * 24 + 2}px` }}
+                                              style={{ left: `${(depth - 1) * 24 + 8}px` }}
                                             />
                                           )}
                                           
                                           {/* Problem card */}
                                           <div
                                             className={`relative mb-2`}
-                                            style={{ marginLeft: `${depth * 24}px` }}
+                                            style={{ marginLeft: `${depth * 24 + 8}px` }}
                                           >
                                             {/* Horizontal connector */}
-                                            {depth > 0 && (
+                                            {depth >= 0 && (
                                               <div 
-                                                className="absolute left-0 top-4 w-4 h-px bg-green-200"
-                                                style={{ left: '-16px' }}
+                                                className="absolute top-4 h-px bg-green-200"
+                                                style={{ 
+                                                  left: '-16px',
+                                                  width: '16px'
+                                                }}
                                               />
                                             )}
                                             
@@ -1851,38 +1903,169 @@ export default function ProblemManagementPage() {
             </Card>
           </div>
 
-        {/* Link Type Selection Dialog */}
-        <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-          <DialogContent className="max-w-md">
+        {/* Link Manager Dialog */}
+        <Dialog open={showLinkManagerDialog} onOpenChange={setShowLinkManagerDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
             <DialogHeader>
-              <DialogTitle>Create Problem Link</DialogTitle>
+              <DialogTitle className="text-xl">🔗 문제 링크 관리</DialogTitle>
+            </DialogHeader>
+            
+            <ScrollArea className="max-h-[60vh] pr-4">
+              {linkManagerProblemId && (
+                <div className="space-y-4 py-4">
+                  {/* Current Problem Info */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-sm text-gray-700 mb-2">현재 문제</h3>
+                    <p className="font-medium">{problems.find(p => p.id === linkManagerProblemId)?.title}</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      난이도: D{problems.find(p => p.id === linkManagerProblemId)?.difficulty}
+                    </p>
+                  </div>
+                  
+                  {/* Outgoing Links (from this problem) */}
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-700 mb-3">나가는 링크 (이 문제에서 →)</h3>
+                    {(() => {
+                      const currentProblem = problems.find(p => p.id === linkManagerProblemId);
+                      const outgoingLinks = currentProblem?.linkedProblems || [];
+                      
+                      if (outgoingLinks.length === 0) {
+                        return <p className="text-sm text-gray-500 italic">링크가 없습니다</p>;
+                      }
+                      
+                      return (
+                        <div className="space-y-2">
+                          {outgoingLinks.map((targetId) => {
+                            const targetProblem = problems.find(p => p.id === targetId);
+                            if (!targetProblem) return null;
+                            
+                            return (
+                              <div key={targetId} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{targetProblem.title}</p>
+                                  <p className="text-xs text-gray-500">난이도: D{targetProblem.difficulty}</p>
+                                </div>
+                                <button
+                                  onClick={() => handleDeleteLink(linkManagerProblemId, targetId)}
+                                  className="text-xs text-red-600 hover:text-red-800 hover:underline px-3 py-1"
+                                >
+                                  삭제
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  {/* Incoming Links (to this problem) */}
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-700 mb-3">들어오는 링크 (→ 이 문제로)</h3>
+                    {(() => {
+                      const incomingProblems = problems.filter(p => 
+                        p.linkedProblems?.includes(linkManagerProblemId) || 
+                        p.id !== linkManagerProblemId && p.parentProblemId === linkManagerProblemId
+                      );
+                      
+                      if (incomingProblems.length === 0) {
+                        return <p className="text-sm text-gray-500 italic">링크가 없습니다</p>;
+                      }
+                      
+                      return (
+                        <div className="space-y-2">
+                          {incomingProblems.map((sourceProblem) => (
+                            <div key={sourceProblem.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{sourceProblem.title}</p>
+                                <p className="text-xs text-gray-500">난이도: D{sourceProblem.difficulty}</p>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteLink(sourceProblem.id, linkManagerProblemId)}
+                                className="text-xs text-red-600 hover:text-red-800 hover:underline px-3 py-1"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </ScrollArea>
+            
+            <div className="flex justify-end pt-4 border-t">
+              <Button
+                onClick={() => setShowLinkManagerDialog(false)}
+                variant="outline"
+              >
+                닫기
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Link Type Selection Dialog */}
+        <Dialog open={showLinkDialog} onOpenChange={(open) => {
+          setShowLinkDialog(open);
+          if (!open) {
+            // Reset states when dialog closes
+            setDraggedProblemId(null);
+            setDropTargetId(null);
+            setLinkConcept("");
+          }
+        }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl">🔗 문제 링크 생성</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4 py-4">
-              <div>
-                <p className="text-sm text-gray-600 mb-4">
-                  {draggedProblemId && dropTargetId && (
-                    <>
-                      Linking: <strong>{problems.find(p => p.id === draggedProblemId)?.title}</strong>
-                      {' → '}
-                      <strong>{problems.find(p => p.id === dropTargetId)?.title}</strong>
-                    </>
-                  )}
-                </p>
+              {/* Link Information Display */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                {draggedProblemId && dropTargetId && (
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 font-semibold text-sm">출발:</span>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{problems.find(p => p.id === draggedProblemId)?.title || 'Unknown'}</p>
+                        <p className="text-xs text-gray-600">
+                          난이도: D{problems.find(p => p.id === draggedProblemId)?.difficulty}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-center">
+                      <span className="text-2xl text-blue-500">↓</span>
+                    </div>
+                    
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600 font-semibold text-sm">도착:</span>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{problems.find(p => p.id === dropTargetId)?.title || 'Unknown'}</p>
+                        <p className="text-xs text-gray-600">
+                          난이도: D{problems.find(p => p.id === dropTargetId)?.difficulty}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Link Type Selection */}
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-2">
-                  Link Type
+                  링크 타입 선택
                 </label>
                 <div className="space-y-2">
                   {[
-                    { value: 'derived', label: '🌱 Derived', desc: 'Target is derived from source' },
-                    { value: 'prerequisite', label: '📚 Prerequisite', desc: 'Source must be completed before target' },
-                    { value: 'related', label: '🔗 Related', desc: 'Problems share similar concepts' },
-                    { value: 'next', label: '➡️ Next', desc: 'Target is the next recommended problem' },
-                    { value: 'alternative', label: '🔄 Alternative', desc: 'Target is an alternative path' },
+                    { value: 'derived', label: '🌱 파생 문제', desc: '도착 문제가 출발 문제로부터 파생됨' },
+                    { value: 'prerequisite', label: '📚 선수 학습', desc: '출발 문제를 먼저 풀어야 도착 문제를 풀 수 있음' },
+                    { value: 'related', label: '🔗 관련 문제', desc: '비슷한 개념을 다루는 문제들' },
+                    { value: 'next', label: '➡️ 다음 문제', desc: '도착 문제가 출발 문제 다음에 추천되는 문제' },
+                    { value: 'alternative', label: '🔄 대체 문제', desc: '같은 개념의 다른 난이도 문제' },
                   ].map((option) => (
                     <label
                       key={option.value}
@@ -1913,18 +2096,21 @@ export default function ProblemManagementPage() {
               {/* Concept/Tag Input */}
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-2">
-                  Concept/Tag (Optional)
+                  개념/태그 (선택사항)
                 </label>
                 <Input
                   value={linkConcept}
                   onChange={(e) => setLinkConcept(e.target.value)}
-                  placeholder="e.g., Algebra, Geometry..."
+                  placeholder="예: 대수학, 기하학, 등차수열..."
                   className="w-full"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  이 링크와 관련된 수학 개념을 입력하면 학습 경로를 더 잘 구성할 수 있습니다.
+                </p>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
                 onClick={() => {
                   setShowLinkDialog(false);
@@ -1934,13 +2120,13 @@ export default function ProblemManagementPage() {
                 }}
                 variant="outline"
               >
-                Cancel
+                취소
               </Button>
               <Button
                 onClick={handleCreateLink}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Create Link
+                ✅ 링크 생성
               </Button>
             </div>
           </DialogContent>
