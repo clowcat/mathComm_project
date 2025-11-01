@@ -103,6 +103,13 @@ export default function ProblemManagementPage() {
   // Editor dialog state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   
+  // Drag and drop states for linking
+  const [draggedProblemId, setDraggedProblemId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkType, setLinkType] = useState<'prerequisite' | 'derived' | 'related' | 'next' | 'alternative'>('derived');
+  const [linkConcept, setLinkConcept] = useState("");
+  
   // Toast notification state
   const [toast, setToast] = useState<{show: boolean; message: string; type: "success" | "error"}>({
     show: false,
@@ -255,6 +262,154 @@ export default function ProblemManagementPage() {
       }
       return newSet;
     });
+  };
+
+  // Drag and Drop handlers for creating links
+  const handleDragStart = (e: React.DragEvent, problemId: string) => {
+    setDraggedProblemId(problemId);
+    e.dataTransfer.effectAllowed = 'link';
+    // Add visual feedback
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+    setDraggedProblemId(null);
+    setDropTargetId(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, problemId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'link';
+    setDropTargetId(problemId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    setDropTargetId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetProblemId: string) => {
+    e.preventDefault();
+    
+    if (!draggedProblemId || draggedProblemId === targetProblemId) {
+      setDraggedProblemId(null);
+      setDropTargetId(null);
+      return;
+    }
+
+    // Check if link already exists
+    const sourceProblem = problems.find(p => p.id === draggedProblemId);
+    const targetProblem = problems.find(p => p.id === targetProblemId);
+    
+    if (!sourceProblem || !targetProblem) return;
+
+    // Check for existing link
+    const hasExistingLink = sourceProblem.linkedProblems?.includes(targetProblemId) ||
+                           targetProblem.linkedProblems?.includes(draggedProblemId) ||
+                           sourceProblem.parentProblemId === targetProblemId ||
+                           targetProblem.parentProblemId === draggedProblemId;
+
+    if (hasExistingLink) {
+      showToast("❌ Link already exists between these problems", "error");
+      setDraggedProblemId(null);
+      setDropTargetId(null);
+      return;
+    }
+
+    // Open dialog to select link type
+    setShowLinkDialog(true);
+  };
+
+  const handleCreateLink = async () => {
+    if (!draggedProblemId || !dropTargetId) return;
+
+    try {
+      // Create relationship in problem_relationships table
+      await problemRelationshipsAPI.create(
+        draggedProblemId,
+        dropTargetId,
+        linkType,
+        {
+          concept: linkConcept || 'Manual Link',
+          description: `${linkType} relationship created via drag & drop`,
+          strength: 0.8,
+          sequenceOrder: 0
+        }
+      );
+
+      // Update local state
+      setProblems(prev => prev.map(p => {
+        if (p.id === draggedProblemId) {
+          const newLinkedProblems = [...(p.linkedProblems || []), dropTargetId];
+          return { ...p, linkedProblems: newLinkedProblems };
+        }
+        return p;
+      }));
+
+      // Update in database
+      const sourceProblem = problems.find(p => p.id === draggedProblemId);
+      if (sourceProblem) {
+        const updatedLinkedIds = [...(sourceProblem.linkedProblems || []), dropTargetId];
+        await problemsAPI.update(draggedProblemId, {
+          linked_problem_ids: updatedLinkedIds
+        });
+      }
+
+      showToast(`✅ Created ${linkType} link successfully!`, "success");
+      
+      // Reset states
+      setShowLinkDialog(false);
+      setDraggedProblemId(null);
+      setDropTargetId(null);
+      setLinkConcept("");
+      
+      // Refresh from database
+      await loadProblemsFromSupabase();
+      
+    } catch (error: any) {
+      console.error('Failed to create link:', error);
+      showToast(`❌ Failed to create link: ${error.message}`, "error");
+    }
+  };
+
+  const handleDeleteLink = async (sourceProblemId: string, targetProblemId: string) => {
+    if (!confirm("Delete this link?")) return;
+
+    try {
+      // Remove from local state
+      setProblems(prev => prev.map(p => {
+        if (p.id === sourceProblemId) {
+          const newLinkedProblems = (p.linkedProblems || []).filter(id => id !== targetProblemId);
+          return { ...p, linkedProblems: newLinkedProblems };
+        }
+        if (p.id === targetProblemId && p.parentProblemId === sourceProblemId) {
+          return { ...p, parentProblemId: undefined };
+        }
+        return p;
+      }));
+
+      // Update in database
+      const sourceProblem = problems.find(p => p.id === sourceProblemId);
+      if (sourceProblem) {
+        const updatedLinkedIds = (sourceProblem.linkedProblems || []).filter(id => id !== targetProblemId);
+        await problemsAPI.update(sourceProblemId, {
+          linked_problem_ids: updatedLinkedIds
+        });
+      }
+
+      showToast("🗑️ Link deleted successfully", "success");
+      
+      // Refresh from database
+      await loadProblemsFromSupabase();
+      
+    } catch (error: any) {
+      console.error('Failed to delete link:', error);
+      showToast(`❌ Failed to delete link: ${error.message}`, "error");
+    }
   };
 
   const handleSelectProblem = (problem: Problem) => {
@@ -1228,14 +1383,35 @@ export default function ProblemManagementPage() {
                                 <div className="relative">
                                   {/* Root Problem Card */}
                                   <div 
-                                    className="inline-block align-top mr-8 group cursor-pointer"
-                                    onClick={() => handleSelectProblem(rootProblem)}
+                                    className="inline-block align-top mr-8 group cursor-grab active:cursor-grabbing"
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation();
+                                      handleDragStart(e, rootProblem.id);
+                                    }}
+                                    onDragEnd={handleDragEnd}
+                                    onDragOver={(e) => {
+                                      e.stopPropagation();
+                                      handleDragOver(e, rootProblem.id);
+                                    }}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => {
+                                      e.stopPropagation();
+                                      handleDrop(e, rootProblem.id);
+                                    }}
+                                    onClick={(e) => {
+                                      if (!draggedProblemId) {
+                                        handleSelectProblem(rootProblem);
+                                      }
+                                    }}
                                   >
                                     <div className={`
                                       relative p-4 rounded-xl border-2 bg-white shadow-md transition-all
-                                      ${selectedProblem?.id === rootProblem.id 
-                                        ? 'border-blue-500 shadow-lg' 
-                                        : 'border-gray-300 hover:border-blue-400 hover:shadow-lg'}
+                                      ${dropTargetId === rootProblem.id && draggedProblemId !== rootProblem.id
+                                        ? 'border-green-500 border-dashed shadow-xl ring-4 ring-green-200'
+                                        : selectedProblem?.id === rootProblem.id 
+                                          ? 'border-blue-500 shadow-lg' 
+                                          : 'border-gray-300 hover:border-blue-400 hover:shadow-lg'}
                                       w-64
                                     `}>
                                       <div className="flex items-center gap-2 mb-2">
@@ -1272,14 +1448,35 @@ export default function ProblemManagementPage() {
                                               )}
                                               
                                               <div 
-                                                className="group cursor-pointer"
-                                                onClick={() => handleSelectProblem(derived)}
+                                                className="group cursor-grab active:cursor-grabbing"
+                                                draggable
+                                                onDragStart={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDragStart(e, derived.id);
+                                                }}
+                                                onDragEnd={handleDragEnd}
+                                                onDragOver={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDragOver(e, derived.id);
+                                                }}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDrop(e, derived.id);
+                                                }}
+                                                onClick={(e) => {
+                                                  if (!draggedProblemId) {
+                                                    handleSelectProblem(derived);
+                                                  }
+                                                }}
                                               >
                                                 <div className={`
                                                   relative p-4 rounded-xl border-2 bg-white shadow-md transition-all
-                                                  ${selectedProblem?.id === derived.id 
-                                                    ? 'border-green-500 shadow-lg' 
-                                                    : 'border-green-300 hover:border-green-500 hover:shadow-lg'}
+                                                  ${dropTargetId === derived.id && draggedProblemId !== derived.id
+                                                    ? 'border-green-500 border-dashed shadow-xl ring-4 ring-green-200'
+                                                    : selectedProblem?.id === derived.id 
+                                                      ? 'border-green-500 shadow-lg' 
+                                                      : 'border-green-300 hover:border-green-500 hover:shadow-lg'}
                                                   w-56
                                                 `}>
                                                   <div className="flex items-center gap-2 mb-2">
@@ -1306,8 +1503,27 @@ export default function ProblemManagementPage() {
                                                   {grandchildren.map((grandchild) => (
                                                     <div 
                                                       key={grandchild.id}
-                                                      className="relative cursor-pointer"
-                                                      onClick={() => handleSelectProblem(grandchild)}
+                                                      className="relative cursor-grab active:cursor-grabbing"
+                                                      draggable
+                                                      onDragStart={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDragStart(e, grandchild.id);
+                                                      }}
+                                                      onDragEnd={handleDragEnd}
+                                                      onDragOver={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDragOver(e, grandchild.id);
+                                                      }}
+                                                      onDragLeave={handleDragLeave}
+                                                      onDrop={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDrop(e, grandchild.id);
+                                                      }}
+                                                      onClick={(e) => {
+                                                        if (!draggedProblemId) {
+                                                          handleSelectProblem(grandchild);
+                                                        }
+                                                      }}
                                                     >
                                                       <svg className="absolute top-1/2 -left-8 w-8 h-1" style={{transform: 'translateY(-50%)'}}>
                                                         <line x1="0" y1="0" x2="32" y2="0" stroke="#A7F3D0" strokeWidth="2" />
@@ -1315,9 +1531,11 @@ export default function ProblemManagementPage() {
                                                       </svg>
                                                       <div className={`
                                                         p-3 rounded-lg border bg-white shadow-sm transition-all w-48
-                                                        ${selectedProblem?.id === grandchild.id 
-                                                          ? 'border-green-500 shadow-md' 
-                                                          : 'border-green-200 hover:border-green-400'}
+                                                        ${dropTargetId === grandchild.id && draggedProblemId !== grandchild.id
+                                                          ? 'border-green-500 border-dashed shadow-lg ring-2 ring-green-200'
+                                                          : selectedProblem?.id === grandchild.id 
+                                                            ? 'border-green-500 shadow-md' 
+                                                            : 'border-green-200 hover:border-green-400'}
                                                       `}>
                                                         <div className="flex items-center gap-2">
                                                           <span className="text-sm">🌿</span>
@@ -1586,6 +1804,101 @@ export default function ProblemManagementPage() {
               </CardContent>
             </Card>
           </div>
+
+        {/* Link Type Selection Dialog */}
+        <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create Problem Link</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  {draggedProblemId && dropTargetId && (
+                    <>
+                      Linking: <strong>{problems.find(p => p.id === draggedProblemId)?.title}</strong>
+                      {' → '}
+                      <strong>{problems.find(p => p.id === dropTargetId)?.title}</strong>
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {/* Link Type Selection */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">
+                  Link Type
+                </label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'derived', label: '🌱 Derived', desc: 'Target is derived from source' },
+                    { value: 'prerequisite', label: '📚 Prerequisite', desc: 'Source must be completed before target' },
+                    { value: 'related', label: '🔗 Related', desc: 'Problems share similar concepts' },
+                    { value: 'next', label: '➡️ Next', desc: 'Target is the next recommended problem' },
+                    { value: 'alternative', label: '🔄 Alternative', desc: 'Target is an alternative path' },
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`
+                        flex items-start p-3 rounded-lg border-2 cursor-pointer transition-all
+                        ${linkType === option.value 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'}
+                      `}
+                    >
+                      <input
+                        type="radio"
+                        name="linkType"
+                        value={option.value}
+                        checked={linkType === option.value}
+                        onChange={(e) => setLinkType(e.target.value as any)}
+                        className="mt-1 mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{option.label}</div>
+                        <div className="text-xs text-gray-500">{option.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Concept/Tag Input */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">
+                  Concept/Tag (Optional)
+                </label>
+                <Input
+                  value={linkConcept}
+                  onChange={(e) => setLinkConcept(e.target.value)}
+                  placeholder="e.g., Algebra, Geometry..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                onClick={() => {
+                  setShowLinkDialog(false);
+                  setDraggedProblemId(null);
+                  setDropTargetId(null);
+                  setLinkConcept("");
+                }}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateLink}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Create Link
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Problem Editor Dialog (Full Screen Modal) */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
