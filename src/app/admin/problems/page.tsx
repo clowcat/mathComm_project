@@ -1117,15 +1117,23 @@ export default function ProblemManagementPage() {
                       </div>
                     ) : (
                       filteredProblems.map((problem) => {
+                        // Get all linked problems (both derived and explicitly linked)
                         const childProblems = problems.filter(p => p.parentProblemId === problem.id);
-                        const linkedProblemsData = problem.linkedProblems
-                          ? problems.filter(p => problem.linkedProblems.includes(p.id))
+                        const explicitLinkedProblems = problem.linkedProblems
+                          ? problems.filter(p => 
+                              problem.linkedProblems.includes(p.id) && 
+                              p.parentProblemId !== problem.id  // Exclude if already in childProblems
+                            )
                           : [];
+                        
+                        // Combine all linked problems
+                        const allLinkedProblems = [...childProblems, ...explicitLinkedProblems];
+                        
                         const parentProblem = problem.parentProblemId 
                           ? problems.find(p => p.id === problem.parentProblemId)
                           : null;
                         const isExpanded = expandedProblems.has(problem.id);
-                        const hasLinkedProblems = childProblems.length > 0 || linkedProblemsData.length > 0;
+                        const hasLinkedProblems = allLinkedProblems.length > 0;
 
                         return (
                           <div key={problem.id}>
@@ -1185,11 +1193,13 @@ export default function ProblemManagementPage() {
                                         }}
                                         className="text-xs text-green-600 hover:text-green-800 font-medium"
                                       >
-                                        {isExpanded ? '▼' : '▶'} {childProblems.length + linkedProblemsData.length} Linked Problems
+                                        {isExpanded ? '▼' : '▶'} {allLinkedProblems.length} Linked Problems
                                       </button>
-                                      <span className="text-xs text-gray-400">
-                                        ({childProblems.length} derived, {linkedProblemsData.length} other)
-                                      </span>
+                                      {childProblems.length > 0 && (
+                                        <span className="text-xs text-gray-400">
+                                          ({childProblems.length} derived)
+                                        </span>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -1215,18 +1225,26 @@ export default function ProblemManagementPage() {
                             {/* Expanded Linked Problems */}
                             {isExpanded && hasLinkedProblems && !problem.isGenerated && (
                               <div className="ml-8 mt-2 space-y-2">
-                                {/* Child Problems (Derived) */}
-                                {childProblems.length > 0 && (
-                                  <div className="border-l-2 border-green-300 pl-4 space-y-2">
-                                    <p className="text-xs font-semibold text-green-700 mb-2">🌱 Derived Problems:</p>
-                                    {childProblems
-                                      .sort((a, b) => a.difficulty - b.difficulty)
-                                      .map((child, idx) => (
+                                {/* All Linked Problems (Unified View) */}
+                                <div className="border-l-2 border-green-300 pl-4 space-y-2">
+                                  <p className="text-xs font-semibold text-green-700 mb-2">🔗 Linked Problems:</p>
+                                  {allLinkedProblems
+                                    .sort((a, b) => {
+                                      // Sort: derived problems first (by difficulty), then others
+                                      const aIsDerived = a.parentProblemId === problem.id;
+                                      const bIsDerived = b.parentProblemId === problem.id;
+                                      if (aIsDerived && !bIsDerived) return -1;
+                                      if (!aIsDerived && bIsDerived) return 1;
+                                      return a.difficulty - b.difficulty;
+                                    })
+                                    .map((linked, idx) => {
+                                      const isDerived = linked.parentProblemId === problem.id;
+                                      return (
                                         <div
-                                          key={child.id}
-                                          onClick={() => handleSelectProblem(child)}
+                                          key={linked.id}
+                                          onClick={() => handleSelectProblem(linked)}
                                           className={`p-2 rounded border cursor-pointer hover:bg-gray-50 ${
-                                            selectedProblem?.id === child.id
+                                            selectedProblem?.id === linked.id
                                               ? "bg-blue-50 border-blue-400"
                                               : "bg-white border-gray-200"
                                           }`}
@@ -1235,17 +1253,20 @@ export default function ProblemManagementPage() {
                                             <div className="flex-1">
                                               <div className="flex items-center gap-2">
                                                 <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
-                                                <h4 className="text-xs font-medium text-gray-700">{child.title}</h4>
-                                                <Badge className={`text-xs ${getDifficultyColor(child.difficulty)} border`}>
-                                                  D{child.difficulty}
+                                                {isDerived && (
+                                                  <span className="text-xs">🌱</span>
+                                                )}
+                                                <h4 className="text-xs font-medium text-gray-700">{linked.title}</h4>
+                                                <Badge className={`text-xs ${getDifficultyColor(linked.difficulty)} border`}>
+                                                  D{linked.difficulty}
                                                 </Badge>
                                               </div>
-                                              <p className="text-xs text-gray-400 mt-1">{child.category}</p>
+                                              <p className="text-xs text-gray-400 mt-1">{linked.category}</p>
                                             </div>
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleDeleteProblem(child.id);
+                                                handleDeleteProblem(linked.id);
                                               }}
                                               className="text-xs text-red-500 hover:text-red-700"
                                             >
@@ -1253,39 +1274,9 @@ export default function ProblemManagementPage() {
                                             </button>
                                           </div>
                                         </div>
-                                      ))}
-                                  </div>
-                                )}
-                                
-                                {/* Other Linked Problems */}
-                                {linkedProblemsData.length > 0 && (
-                                  <div className="border-l-2 border-blue-300 pl-4 space-y-2">
-                                    <p className="text-xs font-semibold text-blue-700 mb-2">🔗 Linked Problems:</p>
-                                    {linkedProblemsData.map((linked, idx) => (
-                                      <div
-                                        key={linked.id}
-                                        onClick={() => handleSelectProblem(linked)}
-                                        className={`p-2 rounded border cursor-pointer hover:bg-gray-50 ${
-                                          selectedProblem?.id === linked.id
-                                            ? "bg-blue-50 border-blue-400"
-                                            : "bg-white border-gray-200"
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
-                                              <h4 className="text-xs font-medium text-gray-700">{linked.title}</h4>
-                                              <Badge className={`text-xs ${getDifficultyColor(linked.difficulty)} border`}>
-                                                D{linked.difficulty}
-                                              </Badge>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                      );
+                                    })}
+                                </div>
                               </div>
                             )}
                           </div>
