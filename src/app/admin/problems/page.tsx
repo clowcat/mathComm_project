@@ -1094,8 +1094,8 @@ export default function ProblemManagementPage() {
         )}
 
         {/* Problem List Section (Full Width) */}
-        <div className="w-full"
-            <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="w-full">
+          <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
               <CardHeader className="p-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xl font-semibold text-gray-800">
