@@ -1589,7 +1589,7 @@ export default function ProblemManagementPage() {
 
         {/* Problem Editor Dialog (Full Screen Modal) */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-          <DialogContent className="max-w-[98vw] max-h-[98vh] w-full h-full p-0 overflow-hidden bg-white shadow-2xl">
+          <DialogContent className="!max-w-[98vw] max-h-[98vh] w-full h-full p-0 overflow-hidden bg-white shadow-2xl">
             <div className="flex flex-col h-full">
               <DialogHeader className="p-6 border-b">
                 <DialogTitle className="text-2xl font-semibold text-gray-800">
@@ -1598,7 +1598,7 @@ export default function ProblemManagementPage() {
               </DialogHeader>
               
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-[1800px] mx-auto space-y-4">
+                <div className="w-full space-y-4">
                 {/* Input Method Tabs */}
                 <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "manual" | "file")}>
                   <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
