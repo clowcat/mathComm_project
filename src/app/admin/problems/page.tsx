@@ -483,16 +483,21 @@ export default function ProblemManagementPage() {
   // Visual link editing handlers
   const handleStartLinkEdit = (e: React.MouseEvent, problemId: string) => {
     e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
+    
+    // Get the button element position (not the card)
+    const buttonRect = e.currentTarget.getBoundingClientRect();
     const scrollContainer = document.querySelector('.h-\\[600px\\]'); // ScrollArea
-    const scrollTop = scrollContainer?.scrollTop || 0;
-    const scrollLeft = scrollContainer?.scrollLeft || 0;
+    const containerRect = scrollContainer?.getBoundingClientRect() || { left: 0, top: 0 };
+    const scrollTop = (scrollContainer as HTMLElement)?.scrollTop || 0;
+    const scrollLeft = (scrollContainer as HTMLElement)?.scrollLeft || 0;
     
     setLinkEditMode(true);
     setLinkEditSourceId(problemId);
+    
+    // Position from button center (relative to scroll container)
     setLinkEditSourcePosition({
-      x: rect.left + rect.width / 2 + scrollLeft,
-      y: rect.top + rect.height / 2 + scrollTop
+      x: buttonRect.left - containerRect.left + buttonRect.width / 2 + scrollLeft,
+      y: buttonRect.top - containerRect.top + buttonRect.height / 2 + scrollTop
     });
     
     console.log('🔗 Link edit mode started for:', problemId);
@@ -526,6 +531,9 @@ export default function ProblemManagementPage() {
     
     const sourceProblem = problems.find(p => p.id === linkEditSourceId);
     const newParentProblem = problems.find(p => p.id === newParentId);
+    const oldParentProblem = sourceProblem?.parentProblemId 
+      ? problems.find(p => p.id === sourceProblem.parentProblemId)
+      : null;
     
     if (!sourceProblem || !newParentProblem) return;
     if (linkEditSourceId === newParentId) {
@@ -545,16 +553,49 @@ export default function ProblemManagementPage() {
       current = problems.find(p => p.id === current!.parentProblemId);
     }
     
-    if (!confirm(`부모 문제를 변경하시겠습니까?\n\n"${sourceProblem.title}"\n의 부모를\n"${newParentProblem.title}"\n로 변경`)) {
+    const oldParentName = oldParentProblem?.title || '(없음)';
+    const confirmMessage = `부모 문제를 변경하시겠습니까?\n\n"${sourceProblem.title}"\n\n이전 부모: "${oldParentName}"\n  ↓\n새 부모: "${newParentProblem.title}"`;
+    
+    if (!confirm(confirmMessage)) {
       handleCancelLinkEdit();
       return;
     }
 
     console.log('🔄 Changing parent:', {
       child: linkEditSourceId,
+      childTitle: sourceProblem.title,
       oldParent: sourceProblem.parentProblemId,
-      newParent: newParentId
+      oldParentTitle: oldParentName,
+      newParent: newParentId,
+      newParentTitle: newParentProblem.title
     });
+
+    // Optimistic UI update - update local state immediately
+    setProblems(prev => prev.map(p => {
+      if (p.id === linkEditSourceId) {
+        // Update child's parent
+        return { ...p, parentProblemId: newParentId };
+      }
+      if (p.id === sourceProblem.parentProblemId) {
+        // Remove from old parent's links
+        return { 
+          ...p, 
+          linkedProblems: (p.linkedProblems || []).filter(id => id !== linkEditSourceId)
+        };
+      }
+      if (p.id === newParentId) {
+        // Add to new parent's links
+        const newLinks = [...(p.linkedProblems || [])];
+        if (!newLinks.includes(linkEditSourceId)) {
+          newLinks.push(linkEditSourceId);
+        }
+        return { ...p, linkedProblems: newLinks };
+      }
+      return p;
+    }));
+    
+    handleCancelLinkEdit();
+    showToast('🔄 위치를 업데이트하는 중...', 'success');
 
     try {
       // Update old parent's linked_problem_ids
@@ -579,17 +620,17 @@ export default function ProblemManagementPage() {
         parent_problem_id: newParentId
       });
 
-      showToast('✅ 부모 문제가 변경되었습니다', 'success');
-      
-      // Refresh from database
+      // Refresh from database to ensure consistency
       await loadProblemsFromSupabase();
       
-      handleCancelLinkEdit();
+      showToast(`✅ "${sourceProblem.title}"이(가) "${newParentProblem.title}" 아래로 이동했습니다`, 'success');
       
     } catch (error: any) {
       console.error('❌ Failed to change parent:', error);
       showToast(`❌ 부모 변경 실패: ${error.message}`, 'error');
-      handleCancelLinkEdit();
+      
+      // Revert optimistic update by reloading
+      await loadProblemsFromSupabase();
     }
   };
 
