@@ -1130,12 +1130,6 @@ export default function ProblemManagementPage() {
                       </button>
                     </div>
                   </div>
-                  <Button 
-                    onClick={handleNewProblem}
-                    className="bg-blue-600 text-white font-medium py-1 px-3 rounded-md hover:bg-blue-700"
-                  >
-                    New
-                  </Button>
                 </div>
                 <Input
                   value={searchQuery}
@@ -1604,7 +1598,7 @@ export default function ProblemManagementPage() {
               </DialogHeader>
               
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-6xl mx-auto space-y-4">
+                <div className="max-w-[1800px] mx-auto space-y-4">
                 {/* Input Method Tabs */}
                 <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "manual" | "file")}>
                   <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
