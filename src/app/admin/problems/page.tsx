@@ -1434,20 +1434,19 @@ export default function ProblemManagementPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
 
         {/* Problem Editor Dialog (Full Screen Modal) */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 overflow-hidden">
-          <div className="flex flex-col h-full">
-            <DialogHeader className="p-6 border-b">
-              <DialogTitle className="text-2xl font-semibold text-gray-800">
-                {isEditing ? "Edit Problem" : "New Problem"}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-6xl mx-auto space-y-4">
+          <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 overflow-hidden">
+            <div className="flex flex-col h-full">
+              <DialogHeader className="p-6 border-b">
+                <DialogTitle className="text-2xl font-semibold text-gray-800">
+                  {isEditing ? "Edit Problem" : "New Problem"}
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="max-w-6xl mx-auto space-y-4">
                 {/* Input Method Tabs */}
                 <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "manual" | "file")}>
                   <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg">
@@ -2076,8 +2075,7 @@ export default function ProblemManagementPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </DialogContent>
+          </DialogContent>
         </Dialog>
       </div>
     </div>
