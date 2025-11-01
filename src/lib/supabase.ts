@@ -107,7 +107,10 @@ export const problemsAPI = {
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase create error:', error);
+      throw new Error(`Failed to create problem: ${error.message || JSON.stringify(error)}`);
+    }
     return data as Problem;
   },
 
@@ -120,7 +123,10 @@ export const problemsAPI = {
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase update error:', error);
+      throw new Error(`Failed to update problem: ${error.message || JSON.stringify(error)}`);
+    }
     return data as Problem;
   },
 

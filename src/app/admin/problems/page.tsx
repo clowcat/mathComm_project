@@ -157,6 +157,13 @@ export default function ProblemManagementPage() {
     try {
       setIsSavingToDb(true);
       
+      // Check if Supabase is configured
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.warn('⚠️ Supabase not configured. Skipping database save.');
+        showToast("⚠️ Supabase not configured. Problem saved locally only.", "error");
+        return null;
+      }
+      
       // Convert local format to Supabase format
       const supabaseProblem = {
         title: problem.title,
@@ -180,16 +187,29 @@ export default function ProblemManagementPage() {
       let savedProblem;
       if (problem.id.startsWith('temp-') || !isDbConnected) {
         // New problem - create
+        console.log('Creating new problem in Supabase...');
         savedProblem = await problemsAPI.create(supabaseProblem);
       } else {
         // Existing problem - update
+        console.log('Updating problem in Supabase:', problem.id);
         savedProblem = await problemsAPI.update(problem.id, supabaseProblem);
       }
       
       return savedProblem;
     } catch (error: any) {
       console.error('Failed to save to Supabase:', error);
-      throw new Error(`Database save failed: ${error.message}`);
+      console.error('Error details:', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        error: error
+      });
+      
+      // More user-friendly error message
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      showToast(`❌ Database save failed: ${errorMsg}`, "error");
+      
+      throw new Error(`Database save failed: ${errorMsg}`);
     } finally {
       setIsSavingToDb(false);
     }
@@ -580,8 +600,19 @@ export default function ProblemManagementPage() {
   };
 
   const handleAddRelatedProblem = (relatedProblem: RelatedProblem) => {
+    // 중복 체크: 같은 제목과 내용을 가진 문제가 이미 있는지 확인
+    const isDuplicate = problems.some(p => 
+      p.title === relatedProblem.title && 
+      p.content === relatedProblem.content
+    );
+    
+    if (isDuplicate) {
+      showToast(`⚠️ "${relatedProblem.title}" is already in the problem list!`, "error");
+      return;
+    }
+    
     const newProblem: Problem = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`,
       title: relatedProblem.title,
       content: relatedProblem.content,
       solution: relatedProblem.solution,
@@ -601,7 +632,7 @@ export default function ProblemManagementPage() {
       setLinkedProblems([...linkedProblems, newProblem.id]);
     }
     
-    showToast(`Added "${relatedProblem.title}" to problem list!`, "success");
+    showToast(`✅ Added "${relatedProblem.title}" to problem list!`, "success");
   };
 
   // Enhanced filtering and sorting
