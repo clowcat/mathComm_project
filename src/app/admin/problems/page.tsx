@@ -112,6 +112,12 @@ export default function ProblemManagementPage() {
   const [showLinkManagerDialog, setShowLinkManagerDialog] = useState(false);
   const [linkManagerProblemId, setLinkManagerProblemId] = useState<string | null>(null);
   
+  // Visual link editing states
+  const [linkEditMode, setLinkEditMode] = useState(false);
+  const [linkEditSourceId, setLinkEditSourceId] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState<{x: number, y: number} | null>(null);
+  const [linkEditSourcePosition, setLinkEditSourcePosition] = useState<{x: number, y: number} | null>(null);
+  
   // Toast notification state
   const [toast, setToast] = useState<{show: boolean; message: string; type: "success" | "error"}>({
     show: false,
@@ -131,6 +137,19 @@ export default function ProblemManagementPage() {
   useEffect(() => {
     loadProblemsFromSupabase();
   }, []);
+
+  // ESC key listener for canceling link edit mode
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && linkEditMode) {
+        handleCancelLinkEdit();
+        showToast('❌ 링크 편집이 취소되었습니다', 'error');
+      }
+    };
+    
+    window.addEventListener('keydown', handleEscKey);
+    return () => window.removeEventListener('keydown', handleEscKey);
+  }, [linkEditMode]);
   
   // Load problems from Supabase
   const loadProblemsFromSupabase = async () => {
@@ -458,6 +477,119 @@ export default function ProblemManagementPage() {
     } catch (error: any) {
       console.error('❌ Failed to delete link:', error);
       showToast(`❌ 링크 삭제 실패: ${error.message}`, "error");
+    }
+  };
+
+  // Visual link editing handlers
+  const handleStartLinkEdit = (e: React.MouseEvent, problemId: string) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scrollContainer = document.querySelector('.h-\\[600px\\]'); // ScrollArea
+    const scrollTop = scrollContainer?.scrollTop || 0;
+    const scrollLeft = scrollContainer?.scrollLeft || 0;
+    
+    setLinkEditMode(true);
+    setLinkEditSourceId(problemId);
+    setLinkEditSourcePosition({
+      x: rect.left + rect.width / 2 + scrollLeft,
+      y: rect.top + rect.height / 2 + scrollTop
+    });
+    
+    console.log('🔗 Link edit mode started for:', problemId);
+    showToast('📌 새로운 부모 문제를 클릭하세요 (ESC: 취소)', 'success');
+  };
+
+  const handleCancelLinkEdit = () => {
+    setLinkEditMode(false);
+    setLinkEditSourceId(null);
+    setMousePosition(null);
+    setLinkEditSourcePosition(null);
+    console.log('❌ Link edit cancelled');
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (linkEditMode && linkEditSourcePosition) {
+      const scrollContainer = e.currentTarget.closest('.h-\\[600px\\]');
+      const rect = scrollContainer?.getBoundingClientRect() || { left: 0, top: 0 };
+      const scrollTop = (scrollContainer as HTMLElement)?.scrollTop || 0;
+      const scrollLeft = (scrollContainer as HTMLElement)?.scrollLeft || 0;
+      
+      setMousePosition({
+        x: e.clientX - rect.left + scrollLeft,
+        y: e.clientY - rect.top + scrollTop
+      });
+    }
+  };
+
+  const handleChangeLinkParent = async (newParentId: string) => {
+    if (!linkEditSourceId) return;
+    
+    const sourceProblem = problems.find(p => p.id === linkEditSourceId);
+    const newParentProblem = problems.find(p => p.id === newParentId);
+    
+    if (!sourceProblem || !newParentProblem) return;
+    if (linkEditSourceId === newParentId) {
+      showToast('❌ 자기 자신을 부모로 설정할 수 없습니다', 'error');
+      handleCancelLinkEdit();
+      return;
+    }
+    
+    // Check for circular dependency
+    let current: Problem | undefined = newParentProblem;
+    while (current) {
+      if (current.id === linkEditSourceId) {
+        showToast('❌ 순환 참조가 발생합니다', 'error');
+        handleCancelLinkEdit();
+        return;
+      }
+      current = problems.find(p => p.id === current!.parentProblemId);
+    }
+    
+    if (!confirm(`부모 문제를 변경하시겠습니까?\n\n"${sourceProblem.title}"\n의 부모를\n"${newParentProblem.title}"\n로 변경`)) {
+      handleCancelLinkEdit();
+      return;
+    }
+
+    console.log('🔄 Changing parent:', {
+      child: linkEditSourceId,
+      oldParent: sourceProblem.parentProblemId,
+      newParent: newParentId
+    });
+
+    try {
+      // Update old parent's linked_problem_ids
+      if (sourceProblem.parentProblemId) {
+        const oldParent = problems.find(p => p.id === sourceProblem.parentProblemId);
+        if (oldParent) {
+          const updatedOldParentLinks = (oldParent.linkedProblems || []).filter(id => id !== linkEditSourceId);
+          await problemsAPI.update(oldParent.id, {
+            linked_problem_ids: updatedOldParentLinks
+          });
+        }
+      }
+
+      // Update new parent's linked_problem_ids
+      const updatedNewParentLinks = [...(newParentProblem.linkedProblems || []), linkEditSourceId];
+      await problemsAPI.update(newParentId, {
+        linked_problem_ids: updatedNewParentLinks
+      });
+
+      // Update child's parent_problem_id
+      await problemsAPI.update(linkEditSourceId, {
+        parent_problem_id: newParentId
+      });
+
+      showToast('✅ 부모 문제가 변경되었습니다', 'success');
+      
+      // Refresh from database
+      await loadProblemsFromSupabase();
+      
+      handleCancelLinkEdit();
+      
+    } catch (error: any) {
+      console.error('❌ Failed to change parent:', error);
+      showToast(`❌ 부모 변경 실패: ${error.message}`, 'error');
+      handleCancelLinkEdit();
     }
   };
 
@@ -1418,7 +1550,53 @@ export default function ProblemManagementPage() {
                       </div>
                     ) : viewMode === "learning-path" ? (
                       /* Learning Path View */
-                      <div className="w-full overflow-x-auto">
+                      <div 
+                        className="w-full overflow-x-auto relative"
+                        onMouseMove={handleMouseMove}
+                        onClick={() => {
+                          if (linkEditMode) {
+                            handleCancelLinkEdit();
+                            showToast('❌ 링크 편집이 취소되었습니다', 'error');
+                          }
+                        }}
+                      >
+                        {/* Visual Link Line */}
+                        {linkEditMode && linkEditSourcePosition && mousePosition && (
+                          <svg 
+                            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                            style={{ zIndex: 9999 }}
+                          >
+                            <defs>
+                              <marker
+                                id="arrowhead-link-edit"
+                                markerWidth="10"
+                                markerHeight="10"
+                                refX="9"
+                                refY="3"
+                                orient="auto"
+                              >
+                                <polygon points="0 0, 10 3, 0 6" fill="#3B82F6" />
+                              </marker>
+                            </defs>
+                            <line
+                              x1={linkEditSourcePosition.x}
+                              y1={linkEditSourcePosition.y}
+                              x2={mousePosition.x}
+                              y2={mousePosition.y}
+                              stroke="#3B82F6"
+                              strokeWidth="3"
+                              strokeDasharray="8,4"
+                              markerEnd="url(#arrowhead-link-edit)"
+                            />
+                            <circle
+                              cx={linkEditSourcePosition.x}
+                              cy={linkEditSourcePosition.y}
+                              r="6"
+                              fill="#3B82F6"
+                            />
+                          </svg>
+                        )}
+                        
                         <div className="min-w-[1200px] relative">
                           {filteredProblems.map((rootProblem, rootIdx) => {
                             const derivedProblems = problems.filter(p => p.parentProblemId === rootProblem.id);
@@ -1429,29 +1607,39 @@ export default function ProblemManagementPage() {
                                   {rootProblem.title}
                                 </h3>
                                 
-                                <div className="relative">
-                                  {/* Root Problem Card */}
+                                <div className="relative flex gap-12">
+                                  {/* Level 0: Root Problems */}
+                                  <div className="flex flex-col gap-6">
                                   <div 
-                                    className={`inline-block align-top mr-8 group cursor-grab active:cursor-grabbing transition-opacity ${
-                                      draggedProblemId === rootProblem.id ? 'opacity-50' : 'opacity-100'
-                                    }`}
-                                    draggable
+                                    className={`group transition-opacity ${
+                                      linkEditMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                                    } ${draggedProblemId === rootProblem.id ? 'opacity-50' : 'opacity-100'}`}
+                                    draggable={!linkEditMode}
                                     onDragStart={(e) => {
-                                      e.stopPropagation();
-                                      handleDragStart(e, rootProblem.id);
+                                      if (!linkEditMode) {
+                                        e.stopPropagation();
+                                        handleDragStart(e, rootProblem.id);
+                                      }
                                     }}
                                     onDragEnd={handleDragEnd}
                                     onDragOver={(e) => {
-                                      e.stopPropagation();
-                                      handleDragOver(e, rootProblem.id);
+                                      if (!linkEditMode) {
+                                        e.stopPropagation();
+                                        handleDragOver(e, rootProblem.id);
+                                      }
                                     }}
-                                    onDragLeave={(e) => handleDragLeave(e, rootProblem.id)}
+                                    onDragLeave={(e) => !linkEditMode && handleDragLeave(e, rootProblem.id)}
                                     onDrop={(e) => {
-                                      e.stopPropagation();
-                                      handleDrop(e, rootProblem.id);
+                                      if (!linkEditMode) {
+                                        e.stopPropagation();
+                                        handleDrop(e, rootProblem.id);
+                                      }
                                     }}
                                     onClick={(e) => {
-                                      if (!draggedProblemId) {
+                                      e.stopPropagation();
+                                      if (linkEditMode && linkEditSourceId !== rootProblem.id) {
+                                        handleChangeLinkParent(rootProblem.id);
+                                      } else if (!draggedProblemId && !linkEditMode) {
                                         handleSelectProblem(rootProblem);
                                       }
                                     }}
@@ -1465,18 +1653,20 @@ export default function ProblemManagementPage() {
                                           : 'border-gray-300 hover:border-blue-400 hover:shadow-lg'}
                                       w-64
                                     `}>
-                                      {/* Link Manager Button */}
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setLinkManagerProblemId(rootProblem.id);
-                                          setShowLinkManagerDialog(true);
-                                        }}
-                                        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors"
-                                        title="링크 관리"
-                                      >
-                                        🔗
-                                      </button>
+                                      {/* Link Edit Button */}
+                                      {rootProblem.parentProblemId && (
+                                        <button
+                                          onClick={(e) => handleStartLinkEdit(e, rootProblem.id)}
+                                          className={`absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded transition-all ${
+                                            linkEditSourceId === rootProblem.id
+                                              ? 'bg-blue-500 text-white scale-110'
+                                              : 'bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600'
+                                          }`}
+                                          title="부모 문제 변경"
+                                        >
+                                          🔗
+                                        </button>
+                                      )}
                                       
                                       <div className="flex items-center gap-2 mb-2">
                                         <span className="text-2xl">🔒</span>
@@ -1490,12 +1680,12 @@ export default function ProblemManagementPage() {
                                       <div className="text-xs text-gray-400 truncate">{rootProblem.category}</div>
                                     </div>
                                   </div>
+                                  </div>
                                   
-                                  {/* Derived Problems */}
+                                  {/* Level 1: Derived Problems (Vertical) */}
                                   {derivedProblems.length > 0 && (
-                                    <div className="inline-block align-top">
-                                      <div className="flex items-center gap-6">
-                                        {derivedProblems.sort((a, b) => a.difficulty - b.difficulty).map((derived, idx) => {
+                                    <div className="flex flex-col gap-6">
+                                      {derivedProblems.sort((a, b) => a.difficulty - b.difficulty).map((derived, idx) => {
                                           const grandchildren = problems.filter(p => p.parentProblemId === derived.id);
                                           
                                           return (
@@ -1511,26 +1701,35 @@ export default function ProblemManagementPage() {
                                               </svg>
                                               
                                               <div 
-                                                className={`group cursor-grab active:cursor-grabbing transition-opacity ${
-                                                  draggedProblemId === derived.id ? 'opacity-50' : 'opacity-100'
-                                                }`}
-                                                draggable
+                                                className={`group transition-opacity ${
+                                                  linkEditMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                                                } ${draggedProblemId === derived.id ? 'opacity-50' : 'opacity-100'}`}
+                                                draggable={!linkEditMode}
                                                 onDragStart={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDragStart(e, derived.id);
+                                                  if (!linkEditMode) {
+                                                    e.stopPropagation();
+                                                    handleDragStart(e, derived.id);
+                                                  }
                                                 }}
                                                 onDragEnd={handleDragEnd}
                                                 onDragOver={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDragOver(e, derived.id);
+                                                  if (!linkEditMode) {
+                                                    e.stopPropagation();
+                                                    handleDragOver(e, derived.id);
+                                                  }
                                                 }}
-                                                onDragLeave={(e) => handleDragLeave(e, derived.id)}
+                                                onDragLeave={(e) => !linkEditMode && handleDragLeave(e, derived.id)}
                                                 onDrop={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDrop(e, derived.id);
+                                                  if (!linkEditMode) {
+                                                    e.stopPropagation();
+                                                    handleDrop(e, derived.id);
+                                                  }
                                                 }}
                                                 onClick={(e) => {
-                                                  if (!draggedProblemId) {
+                                                  e.stopPropagation();
+                                                  if (linkEditMode && linkEditSourceId !== derived.id) {
+                                                    handleChangeLinkParent(derived.id);
+                                                  } else if (!draggedProblemId && !linkEditMode) {
                                                     handleSelectProblem(derived);
                                                   }
                                                 }}
@@ -1544,15 +1743,15 @@ export default function ProblemManagementPage() {
                                                       : 'border-green-300 hover:border-green-500 hover:shadow-lg'}
                                                   w-56
                                                 `}>
-                                                  {/* Link Manager Button */}
+                                                  {/* Link Edit Button */}
                                                   <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setLinkManagerProblemId(derived.id);
-                                                      setShowLinkManagerDialog(true);
-                                                    }}
-                                                    className="absolute top-2 left-2 w-6 h-6 flex items-center justify-center rounded bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 transition-colors z-10"
-                                                    title="링크 관리"
+                                                    onClick={(e) => handleStartLinkEdit(e, derived.id)}
+                                                    className={`absolute top-2 left-2 w-7 h-7 flex items-center justify-center rounded transition-all z-10 ${
+                                                      linkEditSourceId === derived.id
+                                                        ? 'bg-blue-500 text-white scale-110'
+                                                        : 'bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600'
+                                                    }`}
+                                                    title="부모 문제 변경"
                                                   >
                                                     🔗
                                                   </button>
@@ -1574,61 +1773,88 @@ export default function ProblemManagementPage() {
                                                   )}
                                                 </div>
                                               </div>
-                                              
-                                              {/* Grandchildren (if any) */}
-                                              {grandchildren.length > 0 && (
-                                                <div className="mt-4 ml-8 space-y-2">
-                                                  {grandchildren.map((grandchild) => (
-                                                    <div 
-                                                      key={grandchild.id}
-                                                      className={`relative cursor-grab active:cursor-grabbing transition-opacity ${
-                                                        draggedProblemId === grandchild.id ? 'opacity-50' : 'opacity-100'
-                                                      }`}
-                                                      draggable
-                                                      onDragStart={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDragStart(e, grandchild.id);
-                                                      }}
-                                                      onDragEnd={handleDragEnd}
-                                                      onDragOver={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDragOver(e, grandchild.id);
-                                                      }}
-                                                      onDragLeave={(e) => handleDragLeave(e, grandchild.id)}
-                                                      onDrop={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDrop(e, grandchild.id);
-                                                      }}
-                                                      onClick={(e) => {
-                                                        if (!draggedProblemId) {
-                                                          handleSelectProblem(grandchild);
-                                                        }
-                                                      }}
-                                                    >
-                                                      <svg className="absolute top-1/2 -left-8 w-8 h-4 pointer-events-none" style={{transform: 'translateY(-50%)'}} viewBox="0 0 32 4">
-                                                        <line x1="0" y1="2" x2="28" y2="2" stroke="#6EE7B7" strokeWidth="2" />
-                                                        <polygon points="28,0 32,2 28,4" fill="#6EE7B7" />
-                                                      </svg>
-                                                      <div className={`
-                                                        relative p-3 rounded-lg border bg-white shadow-sm transition-all w-48
-                                                        ${dropTargetId === grandchild.id && draggedProblemId !== grandchild.id
-                                                          ? 'border-green-500 border-dashed shadow-lg ring-2 ring-green-200'
-                                                          : selectedProblem?.id === grandchild.id 
-                                                            ? 'border-green-500 shadow-md' 
-                                                            : 'border-green-200 hover:border-green-400'}
-                                                      `}>
-                                                        {/* Link Manager Button */}
-                                                        <button
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setLinkManagerProblemId(grandchild.id);
-                                                            setShowLinkManagerDialog(true);
-                                                          }}
-                                                          className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded bg-gray-100 hover:bg-blue-100 text-xs transition-colors z-10"
-                                                          title="링크 관리"
-                                                        >
-                                                          🔗
-                                                        </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  
+                                  {/* Level 2: Grandchildren (Vertical, Collected from all derived) */}
+                                  {(() => {
+                                    const allGrandchildren = derivedProblems.flatMap(derived => 
+                                      problems.filter(p => p.parentProblemId === derived.id)
+                                    );
+                                    
+                                    if (allGrandchildren.length === 0) return null;
+                                    
+                                    return (
+                                      <div className="flex flex-col gap-6">
+                                        {allGrandchildren.sort((a, b) => a.difficulty - b.difficulty).map((grandchild) => (
+                                          <div key={grandchild.id} className="relative">
+                                            {/* Connection Line */}
+                                            <svg 
+                                              className="absolute top-1/2 -left-8 w-8 h-4 pointer-events-none" 
+                                              style={{transform: 'translateY(-50%)'}}
+                                              viewBox="0 0 32 4"
+                                            >
+                                              <line x1="0" y1="2" x2="28" y2="2" stroke="#6EE7B7" strokeWidth="2" />
+                                              <polygon points="28,0 32,2 28,4" fill="#6EE7B7" />
+                                            </svg>
+                                            
+                                            <div 
+                                              className={`group transition-opacity ${
+                                                linkEditMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+                                              } ${draggedProblemId === grandchild.id ? 'opacity-50' : 'opacity-100'}`}
+                                              draggable={!linkEditMode}
+                                              onDragStart={(e) => {
+                                                if (!linkEditMode) {
+                                                  e.stopPropagation();
+                                                  handleDragStart(e, grandchild.id);
+                                                }
+                                              }}
+                                              onDragEnd={handleDragEnd}
+                                              onDragOver={(e) => {
+                                                if (!linkEditMode) {
+                                                  e.stopPropagation();
+                                                  handleDragOver(e, grandchild.id);
+                                                }
+                                              }}
+                                              onDragLeave={(e) => !linkEditMode && handleDragLeave(e, grandchild.id)}
+                                              onDrop={(e) => {
+                                                if (!linkEditMode) {
+                                                  e.stopPropagation();
+                                                  handleDrop(e, grandchild.id);
+                                                }
+                                              }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (linkEditMode && linkEditSourceId !== grandchild.id) {
+                                                  handleChangeLinkParent(grandchild.id);
+                                                } else if (!draggedProblemId && !linkEditMode) {
+                                                  handleSelectProblem(grandchild);
+                                                }
+                                              }}
+                                            >
+                                              <div className={`
+                                                relative p-3 rounded-lg border bg-white shadow-sm transition-all w-48
+                                                ${dropTargetId === grandchild.id && draggedProblemId !== grandchild.id
+                                                  ? 'border-green-500 border-dashed shadow-lg ring-2 ring-green-200'
+                                                  : selectedProblem?.id === grandchild.id 
+                                                    ? 'border-green-500 shadow-md' 
+                                                    : 'border-green-200 hover:border-green-400'}
+                                              `}>
+                                                {/* Link Edit Button */}
+                                                <button
+                                                  onClick={(e) => handleStartLinkEdit(e, grandchild.id)}
+                                                  className={`absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded transition-all text-xs z-10 ${
+                                                    linkEditSourceId === grandchild.id
+                                                      ? 'bg-blue-500 text-white scale-110'
+                                                      : 'bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600'
+                                                  }`}
+                                                  title="부모 문제 변경"
+                                                >
+                                                  🔗
+                                                </button>
                                                         
                                                         <div className="flex items-center gap-2">
                                                           <span className="text-sm">🌿</span>
@@ -1636,18 +1862,14 @@ export default function ProblemManagementPage() {
                                                             <div className="text-xs font-medium text-gray-700 truncate">{grandchild.title}</div>
                                                             <div className="text-xs text-gray-400">D{grandchild.difficulty}</div>
                                                           </div>
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  ))}
                                                 </div>
-                                              )}
+                                              </div>
                                             </div>
-                                          );
-                                        })}
+                                          </div>
+                                        ))}
                                       </div>
-                                    </div>
-                                  )}
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             );
