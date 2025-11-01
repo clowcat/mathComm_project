@@ -97,6 +97,9 @@ export default function ProblemManagementPage() {
   const [sortBy, setSortBy] = useState<"newest" | "title" | "difficulty">("newest");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   
+  // Expanded problems state (for showing linked problems)
+  const [expandedProblems, setExpandedProblems] = useState<Set<string>>(new Set());
+  
   // Toast notification state
   const [toast, setToast] = useState<{show: boolean; message: string; type: "success" | "error"}>({
     show: false,
@@ -236,6 +239,19 @@ export default function ProblemManagementPage() {
     setTimeout(() => {
       setToast({ show: false, message: "", type: "success" });
     }, 3000);
+  };
+  
+  // Toggle expanded state for a problem
+  const toggleExpanded = (problemId: string) => {
+    setExpandedProblems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(problemId)) {
+        newSet.delete(problemId);
+      } else {
+        newSet.add(problemId);
+      }
+      return newSet;
+    });
   };
 
   const handleSelectProblem = (problem: Problem) => {
@@ -1102,61 +1118,176 @@ export default function ProblemManagementPage() {
                     ) : (
                       filteredProblems.map((problem) => {
                         const childProblems = problems.filter(p => p.parentProblemId === problem.id);
+                        const linkedProblemsData = problem.linkedProblems
+                          ? problems.filter(p => problem.linkedProblems.includes(p.id))
+                          : [];
                         const parentProblem = problem.parentProblemId 
                           ? problems.find(p => p.id === problem.parentProblemId)
                           : null;
+                        const isExpanded = expandedProblems.has(problem.id);
+                        const hasLinkedProblems = childProblems.length > 0 || linkedProblemsData.length > 0;
 
                         return (
                           <div key={problem.id}>
+                            {/* Main Problem Card */}
                             <div
-                              className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 ${
+                              className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
                                 selectedProblem?.id === problem.id
-                                  ? "bg-gray-100 border-blue-600"
+                                  ? "bg-blue-50 border-blue-600"
                                   : "bg-white border-gray-200"
                               } ${problem.isGenerated ? 'ml-4 border-l-4 border-l-green-400' : ''}`}
                               onClick={() => handleSelectProblem(problem)}
                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-start justify-between gap-2">
+                                {/* Expand/Collapse Button */}
+                                {hasLinkedProblems && !problem.isGenerated && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleExpanded(problem.id);
+                                    }}
+                                    className="text-gray-500 hover:text-gray-700 transition-transform"
+                                    style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                                  >
+                                    ▶
+                                  </button>
+                                )}
+                                
+                                <div className={`flex-1 ${hasLinkedProblems && !problem.isGenerated ? '' : 'ml-6'}`}>
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <h3 className="text-sm font-medium text-gray-800">{problem.title}</h3>
                                     {problem.isGenerated && (
                                       <Badge className="text-xs bg-green-100 text-green-700 border-green-200">
-                                        AI Generated
+                                        🤖 AI
                                       </Badge>
                                     )}
+                                    <Badge className={`text-xs ${getDifficultyColor(problem.difficulty)} border`}>
+                                      D{problem.difficulty}
+                                    </Badge>
                                   </div>
-                                  <p className="text-xs text-gray-500">{problem.category}</p>
+                                  
+                                  <p className="text-xs text-gray-500 mb-1">{problem.category}</p>
+                                  
+                                  {/* Parent Problem Info */}
                                   {parentProblem && (
-                                    <p className="text-xs text-blue-600 mt-1">
-                                      ↳ From: {parentProblem.title}
+                                    <p className="text-xs text-blue-600 mb-1">
+                                      ↳ Derived from: <span className="font-medium">{parentProblem.title}</span>
                                     </p>
                                   )}
-                                  {childProblems.length > 0 && !problem.isGenerated && (
-                                    <p className="text-xs text-green-600 mt-1">
-                                      → {childProblems.length} related problem{childProblems.length > 1 ? 's' : ''}
-                                    </p>
+                                  
+                                  {/* Linked Problems Summary */}
+                                  {hasLinkedProblems && !problem.isGenerated && (
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleExpanded(problem.id);
+                                        }}
+                                        className="text-xs text-green-600 hover:text-green-800 font-medium"
+                                      >
+                                        {isExpanded ? '▼' : '▶'} {childProblems.length + linkedProblemsData.length} Linked Problems
+                                      </button>
+                                      <span className="text-xs text-gray-400">
+                                        ({childProblems.length} derived, {linkedProblemsData.length} other)
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
-                                <Badge className={`text-xs ${getDifficultyColor(problem.difficulty)} border`}>
-                                  D{problem.difficulty}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-xs text-gray-500">
-                                  {problem.updatedAt.toLocaleDateString()}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteProblem(problem.id);
-                                  }}
-                                  className="text-xs text-red-600 hover:text-red-800"
-                                >
-                                  Delete
-                                </button>
+                                
+                                {/* Actions */}
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs text-gray-400 text-right">
+                                    {problem.updatedAt.toLocaleDateString()}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteProblem(problem.id);
+                                    }}
+                                    className="text-xs text-red-600 hover:text-red-800 hover:underline"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
                             </div>
+                            
+                            {/* Expanded Linked Problems */}
+                            {isExpanded && hasLinkedProblems && !problem.isGenerated && (
+                              <div className="ml-8 mt-2 space-y-2">
+                                {/* Child Problems (Derived) */}
+                                {childProblems.length > 0 && (
+                                  <div className="border-l-2 border-green-300 pl-4 space-y-2">
+                                    <p className="text-xs font-semibold text-green-700 mb-2">🌱 Derived Problems:</p>
+                                    {childProblems
+                                      .sort((a, b) => a.difficulty - b.difficulty)
+                                      .map((child, idx) => (
+                                        <div
+                                          key={child.id}
+                                          onClick={() => handleSelectProblem(child)}
+                                          className={`p-2 rounded border cursor-pointer hover:bg-gray-50 ${
+                                            selectedProblem?.id === child.id
+                                              ? "bg-blue-50 border-blue-400"
+                                              : "bg-white border-gray-200"
+                                          }`}
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
+                                                <h4 className="text-xs font-medium text-gray-700">{child.title}</h4>
+                                                <Badge className={`text-xs ${getDifficultyColor(child.difficulty)} border`}>
+                                                  D{child.difficulty}
+                                                </Badge>
+                                              </div>
+                                              <p className="text-xs text-gray-400 mt-1">{child.category}</p>
+                                            </div>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteProblem(child.id);
+                                              }}
+                                              className="text-xs text-red-500 hover:text-red-700"
+                                            >
+                                              🗑️
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                                
+                                {/* Other Linked Problems */}
+                                {linkedProblemsData.length > 0 && (
+                                  <div className="border-l-2 border-blue-300 pl-4 space-y-2">
+                                    <p className="text-xs font-semibold text-blue-700 mb-2">🔗 Linked Problems:</p>
+                                    {linkedProblemsData.map((linked, idx) => (
+                                      <div
+                                        key={linked.id}
+                                        onClick={() => handleSelectProblem(linked)}
+                                        className={`p-2 rounded border cursor-pointer hover:bg-gray-50 ${
+                                          selectedProblem?.id === linked.id
+                                            ? "bg-blue-50 border-blue-400"
+                                            : "bg-white border-gray-200"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
+                                              <h4 className="text-xs font-medium text-gray-700">{linked.title}</h4>
+                                              <Badge className={`text-xs ${getDifficultyColor(linked.difficulty)} border`}>
+                                                D{linked.difficulty}
+                                              </Badge>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })
