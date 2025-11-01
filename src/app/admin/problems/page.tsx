@@ -95,7 +95,7 @@ export default function ProblemManagementPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"newest" | "title" | "difficulty">("newest");
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid" | "learning-path">("list");
   
   // Expanded problems state (for showing linked problems)
   const [expandedProblems, setExpandedProblems] = useState<Set<string>>(new Set());
@@ -1098,12 +1098,38 @@ export default function ProblemManagementPage() {
           <Card className="bg-white rounded-lg shadow-sm border border-gray-200">
               <CardHeader className="p-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl font-semibold text-gray-800">
-                    Problem List
-                    <span className="ml-2 text-sm font-normal text-gray-500">
-                      ({filteredProblems.length})
-                    </span>
-                  </CardTitle>
+                  <div className="flex items-center gap-4">
+                    <CardTitle className="text-xl font-semibold text-gray-800">
+                      Problem List
+                      <span className="ml-2 text-sm font-normal text-gray-500">
+                        ({filteredProblems.length})
+                      </span>
+                    </CardTitle>
+                    
+                    {/* View Mode Switcher */}
+                    <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                      <button
+                        onClick={() => setViewMode("list")}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-all ${
+                          viewMode === "list"
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-800"
+                        }`}
+                      >
+                        📋 List
+                      </button>
+                      <button
+                        onClick={() => setViewMode("learning-path")}
+                        className={`px-3 py-1 text-xs font-medium rounded transition-all ${
+                          viewMode === "learning-path"
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-800"
+                        }`}
+                      >
+                        🌳 Learning Path
+                      </button>
+                    </div>
+                  </div>
                   <Button 
                     onClick={handleNewProblem}
                     className="bg-blue-600 text-white font-medium py-1 px-3 rounded-md hover:bg-blue-700"
@@ -1187,12 +1213,144 @@ export default function ProblemManagementPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[600px]">
-                  <div className="space-y-2 p-4">
+                  <div className={viewMode === "learning-path" ? "p-6" : "space-y-2 p-4"}>
                     {filteredProblems.length === 0 ? (
                       <div className="text-center text-gray-500 py-8">
                         <p className="text-sm">No problems found</p>
                       </div>
+                    ) : viewMode === "learning-path" ? (
+                      /* Learning Path View */
+                      <div className="w-full overflow-x-auto">
+                        <div className="min-w-[1200px] relative">
+                          {filteredProblems.map((rootProblem, rootIdx) => {
+                            const derivedProblems = problems.filter(p => p.parentProblemId === rootProblem.id);
+                            
+                            return (
+                              <div key={rootProblem.id} className="mb-12">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-6">
+                                  {rootProblem.title}
+                                </h3>
+                                
+                                <div className="relative">
+                                  {/* Root Problem Card */}
+                                  <div 
+                                    className="inline-block align-top mr-8 group cursor-pointer"
+                                    onClick={() => handleSelectProblem(rootProblem)}
+                                  >
+                                    <div className={`
+                                      relative p-4 rounded-xl border-2 bg-white shadow-md transition-all
+                                      ${selectedProblem?.id === rootProblem.id 
+                                        ? 'border-blue-500 shadow-lg' 
+                                        : 'border-gray-300 hover:border-blue-400 hover:shadow-lg'}
+                                      w-64
+                                    `}>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-2xl">🔒</span>
+                                        <div className="flex-1">
+                                          <div className="font-semibold text-sm text-gray-800">{rootProblem.title}</div>
+                                          <div className="text-xs text-gray-500 mt-1">
+                                            {getDifficultyLabel(rootProblem.difficulty)} • D{rootProblem.difficulty}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="text-xs text-gray-400 truncate">{rootProblem.category}</div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Derived Problems */}
+                                  {derivedProblems.length > 0 && (
+                                    <div className="inline-block align-top">
+                                      <div className="flex items-center gap-6">
+                                        {derivedProblems.sort((a, b) => a.difficulty - b.difficulty).map((derived, idx) => {
+                                          const grandchildren = problems.filter(p => p.parentProblemId === derived.id);
+                                          
+                                          return (
+                                            <div key={derived.id} className="relative">
+                                              {/* Connection Line */}
+                                              {idx === 0 && (
+                                                <svg 
+                                                  className="absolute top-1/2 -left-8 w-8 h-1" 
+                                                  style={{transform: 'translateY(-50%)'}}
+                                                >
+                                                  <line x1="0" y1="0" x2="32" y2="0" stroke="#CBD5E1" strokeWidth="2" />
+                                                  <polygon points="28,0 32,0 28,4" fill="#CBD5E1" />
+                                                </svg>
+                                              )}
+                                              
+                                              <div 
+                                                className="group cursor-pointer"
+                                                onClick={() => handleSelectProblem(derived)}
+                                              >
+                                                <div className={`
+                                                  relative p-4 rounded-xl border-2 bg-white shadow-md transition-all
+                                                  ${selectedProblem?.id === derived.id 
+                                                    ? 'border-green-500 shadow-lg' 
+                                                    : 'border-green-300 hover:border-green-500 hover:shadow-lg'}
+                                                  w-56
+                                                `}>
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-xl">🌱</span>
+                                                    <div className="flex-1">
+                                                      <div className="font-semibold text-sm text-gray-800">{derived.title}</div>
+                                                      <div className="text-xs text-gray-500 mt-1">
+                                                        {getDifficultyLabel(derived.difficulty)} • D{derived.difficulty}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                  <div className="text-xs text-gray-400 truncate">{derived.category}</div>
+                                                  {derived.isGenerated && (
+                                                    <div className="absolute top-2 right-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                                      🤖 AI
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              
+                                              {/* Grandchildren (if any) */}
+                                              {grandchildren.length > 0 && (
+                                                <div className="mt-4 ml-8 space-y-2">
+                                                  {grandchildren.map((grandchild) => (
+                                                    <div 
+                                                      key={grandchild.id}
+                                                      className="relative cursor-pointer"
+                                                      onClick={() => handleSelectProblem(grandchild)}
+                                                    >
+                                                      <svg className="absolute top-1/2 -left-8 w-8 h-1" style={{transform: 'translateY(-50%)'}}>
+                                                        <line x1="0" y1="0" x2="32" y2="0" stroke="#A7F3D0" strokeWidth="2" />
+                                                        <polygon points="28,0 32,0 28,4" fill="#A7F3D0" />
+                                                      </svg>
+                                                      <div className={`
+                                                        p-3 rounded-lg border bg-white shadow-sm transition-all w-48
+                                                        ${selectedProblem?.id === grandchild.id 
+                                                          ? 'border-green-500 shadow-md' 
+                                                          : 'border-green-200 hover:border-green-400'}
+                                                      `}>
+                                                        <div className="flex items-center gap-2">
+                                                          <span className="text-sm">🌿</span>
+                                                          <div className="flex-1 min-w-0">
+                                                            <div className="text-xs font-medium text-gray-700 truncate">{grandchild.title}</div>
+                                                            <div className="text-xs text-gray-400">D{grandchild.difficulty}</div>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ) : (
+                      /* List View */
                       filteredProblems.map((problem) => {
                         // Get all linked problems (both derived and explicitly linked)
                         const childProblems = problems.filter(p => p.parentProblemId === problem.id);
@@ -1437,7 +1595,7 @@ export default function ProblemManagementPage() {
 
         {/* Problem Editor Dialog (Full Screen Modal) */}
         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-          <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 overflow-hidden">
+          <DialogContent className="max-w-[98vw] max-h-[98vh] w-full h-full p-0 overflow-hidden bg-white shadow-2xl">
             <div className="flex flex-col h-full">
               <DialogHeader className="p-6 border-b">
                 <DialogTitle className="text-2xl font-semibold text-gray-800">
